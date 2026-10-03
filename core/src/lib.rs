@@ -1,4 +1,5 @@
 pub mod adapters;
+pub mod cloud;
 pub mod provider;
 pub mod runner;
 pub mod workflow;

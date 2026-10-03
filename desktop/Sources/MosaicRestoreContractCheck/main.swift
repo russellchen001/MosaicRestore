@@ -18,7 +18,7 @@ let local = RestoreCommand(
     input: URL(fileURLWithPath: "/tmp/input video.mp4"),
     output: URL(fileURLWithPath: "/tmp/output video.mp4"),
     providerRoot: "/tmp/lada",
-    jasnaRunner: "",
+    cloudConfig: "",
     cancelFile: URL(fileURLWithPath: "/tmp/cancel")
 )
 check(local.arguments == [
@@ -37,7 +37,7 @@ let batch = RestoreCommand(
     inputs: [URL(fileURLWithPath: "/tmp/a.mp4"), URL(fileURLWithPath: "/tmp/b.mp4")],
     outputs: [URL(fileURLWithPath: "/tmp/a.restored.mp4"), URL(fileURLWithPath: "/tmp/b.restored.mp4")],
     providerRoot: "/tmp/lada",
-    jasnaRunner: "",
+    cloudConfig: "",
     cancelFile: URL(fileURLWithPath: "/tmp/cancel")
 )
 check(batch.arguments.filter { $0 == "--input" }.count == 2 &&
@@ -49,12 +49,15 @@ let cloud = RestoreCommand(
     input: URL(fileURLWithPath: "/tmp/input.mp4"),
     output: URL(fileURLWithPath: "/tmp/output.mp4"),
     providerRoot: "",
-    jasnaRunner: "/tmp/jasna-runner",
+    cloudConfig: "/tmp/cloud.conf",
     cancelFile: URL(fileURLWithPath: "/tmp/cancel")
 )
-check(cloud.arguments.contains("nvidia-jasna"), "Cloud NVIDIA provider entry remains available")
-check(Array(cloud.arguments.suffix(2)) == ["--runner", "/tmp/jasna-runner"],
-      "Cloud runner path reaches Mosaic Core")
+check(cloud.arguments.contains("cloud-nvidia"), "Cloud NVIDIA provider entry is live")
+check(Array(cloud.arguments.suffix(2)) == ["--cloud-config", "/tmp/cloud.conf"],
+      "Cloud configuration reaches Mosaic Core")
+check(ProgressLineParser.cloudEstimate(from: "CLOUD estimated_seconds=120 estimated_cost_usd=0.42") ==
+      "Estimated 120s · $0.42 USD paid to your cloud provider",
+      "Desktop shows cloud time and user-paid cost estimate")
 check(ProgressLineParser.percent(from: "15% Running restoring") == 15,
       "Desktop reads Core progress")
 check(ProgressLineParser.friendlyStatus(from: "100% Succeeded completed") == "Complete",

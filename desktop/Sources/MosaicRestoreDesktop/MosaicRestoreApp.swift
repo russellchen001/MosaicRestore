@@ -54,7 +54,14 @@ private struct RestoreView: View {
                     if model.provider == .local {
                         TextField("Local runtime", text: $model.providerRoot)
                     } else {
-                        TextField("Cloud runner", text: $model.jasnaRunner)
+                        TextField("Cloud configuration", text: $model.cloudConfig)
+                        Text("Uses your own NVIDIA account or host. GPU charges are paid directly to your provider.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        if let estimate = model.cloudEstimate {
+                            Text(estimate)
+                                .font(.caption)
+                        }
                     }
                 }
                 .formStyle(.grouped)

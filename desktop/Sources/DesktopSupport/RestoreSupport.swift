@@ -12,7 +12,7 @@ public struct RestoreCommand {
     public let inputs: [URL]
     public let outputs: [URL]
     public let providerRoot: String
-    public let jasnaRunner: String
+    public let cloudConfig: String
     public let cancelFile: URL
 
     public init(
@@ -20,14 +20,14 @@ public struct RestoreCommand {
         input: URL,
         output: URL,
         providerRoot: String,
-        jasnaRunner: String,
+        cloudConfig: String,
         cancelFile: URL
     ) {
         self.provider = provider
         self.inputs = [input]
         self.outputs = [output]
         self.providerRoot = providerRoot
-        self.jasnaRunner = jasnaRunner
+        self.cloudConfig = cloudConfig
         self.cancelFile = cancelFile
     }
 
@@ -36,14 +36,14 @@ public struct RestoreCommand {
         inputs: [URL],
         outputs: [URL],
         providerRoot: String,
-        jasnaRunner: String,
+        cloudConfig: String,
         cancelFile: URL
     ) {
         self.provider = provider
         self.inputs = inputs
         self.outputs = outputs
         self.providerRoot = providerRoot
-        self.jasnaRunner = jasnaRunner
+        self.cloudConfig = cloudConfig
         self.cancelFile = cancelFile
     }
 
@@ -61,7 +61,8 @@ public struct RestoreCommand {
         if provider == .local {
             result += ["--provider-root", NSString(string: providerRoot).expandingTildeInPath]
         } else {
-            result += ["--runner", NSString(string: jasnaRunner).expandingTildeInPath]
+            result[1] = "cloud-nvidia"
+            result += ["--cloud-config", NSString(string: cloudConfig).expandingTildeInPath]
         }
         return result
     }
@@ -83,10 +84,29 @@ public enum ProgressLineParser {
         if line.contains("starting-provider") { return "Starting restoration…" }
         if line.contains("restoring") { return "Restoring video…" }
         if line.contains("checkpoint-resumed") { return "Resuming previous work…" }
+        if line.contains("validating-cloud-config") { return "Checking cloud configuration…" }
+        if line.contains("uploading") { return "Uploading video…" }
+        if line.contains("gpu-runtime-readiness") { return "Checking NVIDIA runtime…" }
+        if line.contains("remote-runner-started") { return "Cloud restoration started…" }
+        if line.contains("remote-progress") { return "Restoring in cloud…" }
+        if line.contains("recovering-connection") { return "Reconnecting to cloud…" }
+        if line.contains("downloading") { return "Downloading result…" }
         if line.contains("chunk-completed") { return "Restoring video…" }
         if line.contains("output-validated") { return "Checking output…" }
         if line.contains("completed") { return "Complete" }
         if line.contains("cancelled") { return "Cancelled" }
         return nil
+    }
+
+    public static func cloudEstimate(from line: String) -> String? {
+        guard line.hasPrefix("CLOUD ") else { return nil }
+        let pairs: [(String, String)] = line.split(separator: " ").dropFirst().compactMap { token in
+            let parts = token.split(separator: "=", maxSplits: 1)
+            guard parts.count == 2 else { return nil }
+            return (String(parts[0]), String(parts[1]))
+        }
+        let values = Dictionary(uniqueKeysWithValues: pairs)
+        guard let seconds = values["estimated_seconds"], let cost = values["estimated_cost_usd"] else { return nil }
+        return "Estimated \(seconds)s · $\(cost) USD paid to your cloud provider"
     }
 }

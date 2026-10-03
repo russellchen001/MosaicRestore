@@ -9,7 +9,8 @@ final class RestoreViewModel: ObservableObject {
     @Published var outputURLs: [URL] = []
     @Published var provider: RestoreProvider = .local
     @Published var providerRoot = "~/MosaicRestore/benchmark/lada-upstream"
-    @Published var jasnaRunner = ""
+    @Published var cloudConfig = "~/.config/mosaicrestore/cloud.conf"
+    @Published var cloudEstimate: String?
     @Published var progress = 0.0
     @Published var status = "Choose a video to begin"
     @Published var isRunning = false
@@ -21,7 +22,7 @@ final class RestoreViewModel: ObservableObject {
     private var outputBuffer = ""
 
     var canRestore: Bool {
-        !inputURLs.isEmpty && !isRunning && (provider == .local || !jasnaRunner.isEmpty)
+        !inputURLs.isEmpty && !isRunning && (provider == .local || !cloudConfig.isEmpty)
     }
 
     func chooseInput() {
@@ -54,7 +55,7 @@ final class RestoreViewModel: ObservableObject {
                 inputs: inputURLs,
                 outputs: outputURLs,
                 providerRoot: providerRoot,
-                jasnaRunner: jasnaRunner,
+                cloudConfig: cloudConfig,
                 cancelFile: cancelURL
             )
             let task = Process()
@@ -110,6 +111,9 @@ final class RestoreViewModel: ObservableObject {
             }
             if let friendly = ProgressLineParser.friendlyStatus(from: line) {
                 status = friendly
+            }
+            if let estimate = ProgressLineParser.cloudEstimate(from: line) {
+                cloudEstimate = estimate
             }
             if line.contains("FAIL restore") {
                 errorMessage = line.replacingOccurrences(of: "FAIL restore — ", with: "")

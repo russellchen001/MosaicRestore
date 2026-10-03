@@ -1,7 +1,8 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-P3 — Long Video Reliability & Production Workflow complete on 2026-10-03.
+P4 — Cloud Execution implementation and local automated acceptance complete on 2026-10-03.
+Final P4 completion is blocked only by one real NVIDIA/Jasna end-to-end run: this Mac currently has no `MOSAIC_CLOUD_CONFIG`, cloud host profile, or available NVIDIA machine connection.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -109,3 +110,21 @@ No AGPL upstream source is copied into Core or Desktop.
 - Successful tasks remove their workspaces; cancelled/failed tasks retain only resumable task state.
 - A two-item batch verifies ordered Running/Succeeded terminal states and readable outputs.
 - P1, P2 and P3 verification scripts pass together. Real NVIDIA/Jasna remains SKIP on this Apple Silicon Mac when no NVIDIA runtime is available.
+
+## P4 Scope
+Provider-neutral user-funded cloud execution:
+configuration validation → upload → GPU/driver/CUDA/TensorRT/Jasna/Lada-detector readiness → estimate → remote start/progress → cancellation/recovery → download → existing P3 output validation.
+Desktop keeps Local Lada/MPS as the simple default and exposes the real Cloud/NVIDIA path only under Advanced.
+
+## P4 Technical Decision
+Cloud execution uses a versioned external adapter command contract owned by Mosaic Core; Core does not contain AirGPU, RunPod, or another vendor API.
+The bundled generic SSH adapter can target AirGPU, RunPod, or a user-owned NVIDIA host through a named profile. Provider credentials and SSH keys remain outside the app and repository, and GPU charges are paid directly by the user.
+The remote runner remains external and must provide Jasna pipeline execution with Lada YOLO v4 detection, BasicVSR++ restoration, TensorRT backend, persistent engine-cache reuse, job status, and cancellation. No Jasna or Lada AGPL upstream source is copied into Core or Desktop.
+P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jobs inherit bounded retry, crash resume, batch ordering, final ffprobe validation, and cleanup semantics.
+
+## P4 Verification
+- `verify/verify_p4_cloud_execution.sh` is the P4 acceptance entry point.
+- Executable fixture coverage passes for cloud configuration validation, upload/download, complete NVIDIA runtime readiness, exact Jasna/Lada/TensorRT runner arguments, progress, remote cancellation, transient connection recovery, TensorRT cache hit, cost/time estimate, and output integrity.
+- Rust Core has 14 passing behavior tests, including cloud success, readiness rejection, cancellation, and transient status recovery.
+- Desktop contract compiles and passes with the Xcode beta toolchain; the Advanced Cloud/NVIDIA path submits `cloud-nvidia` configuration and displays progress plus user-paid cost/time estimates.
+- Real NVIDIA/Jasna/Lada detector end-to-end is `SKIP` until the user supplies one available machine through `MOSAIC_CLOUD_CONFIG`. This is the only remaining P4 completion blocker.

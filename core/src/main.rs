@@ -1,4 +1,5 @@
 use mosaic_core::adapters::{LocalLadaProvider, NvidiaJasnaProvider};
+use mosaic_core::cloud::CloudNvidiaProvider;
 use mosaic_core::provider::{CancellationToken, RestorationProvider, RestoreControl};
 use mosaic_core::runner::run_restore;
 use mosaic_core::workflow::{ProductionOptions, run_production_batch};
@@ -13,6 +14,7 @@ struct Options {
     outputs: Vec<PathBuf>,
     provider_root: Option<PathBuf>,
     runner: Option<PathBuf>,
+    cloud_config: Option<PathBuf>,
     cancel_file: Option<PathBuf>,
     production: bool,
     chunk_seconds: f64,
@@ -68,6 +70,25 @@ fn main() {
                 Box::new(NvidiaJasnaProvider::new(runner)),
                 ComputeBackend::NvidiaCuda,
             )
+        }
+        "cloud-nvidia" => {
+            let config = options
+                .cloud_config
+                .or_else(|| std::env::var_os("MOSAIC_CLOUD_CONFIG").map(PathBuf::from));
+            let Some(config) = config else {
+                eprintln!(
+                    "FAIL restore — cloud-nvidia requires --cloud-config or MOSAIC_CLOUD_CONFIG"
+                );
+                std::process::exit(2);
+            };
+            let provider = match CloudNvidiaProvider::from_config(config) {
+                Ok(provider) => provider,
+                Err(error) => {
+                    eprintln!("FAIL restore — {:?}: {}", error.kind, error);
+                    std::process::exit(2);
+                }
+            };
+            (Box::new(provider), ComputeBackend::NvidiaCuda)
         }
         value => {
             eprintln!("FAIL restore — unknown provider: {value}");
@@ -125,6 +146,7 @@ fn parse_options() -> Result<Options, String> {
     let mut outputs = Vec::new();
     let mut provider_root = None;
     let mut runner = None;
+    let mut cloud_config = None;
     let mut cancel_file = None;
     let mut production = false;
     let mut chunk_seconds = 300.0;
@@ -151,6 +173,7 @@ fn parse_options() -> Result<Options, String> {
             "--output" => outputs.push(PathBuf::from(value)),
             "--provider-root" => provider_root = Some(PathBuf::from(value)),
             "--runner" => runner = Some(PathBuf::from(value)),
+            "--cloud-config" => cloud_config = Some(PathBuf::from(value)),
             "--cancel-file" => cancel_file = Some(PathBuf::from(value)),
             "--chunk-seconds" => {
                 chunk_seconds = value
@@ -183,6 +206,7 @@ fn parse_options() -> Result<Options, String> {
         outputs,
         provider_root,
         runner,
+        cloud_config,
         cancel_file,
         production,
         chunk_seconds,
@@ -204,6 +228,6 @@ fn default_lada_root() -> PathBuf {
 
 fn print_usage() {
     eprintln!(
-        "Usage: mosaic-core --provider local-lada|nvidia-jasna --input VIDEO --output VIDEO [--input VIDEO --output VIDEO ...] [--production] [--chunk-seconds N] [--max-retries N] [--work-root DIR] [--minimum-free-bytes N] [--provider-root DIR] [--runner PATH] [--cancel-file PATH]"
+        "Usage: mosaic-core --provider local-lada|nvidia-jasna|cloud-nvidia --input VIDEO --output VIDEO [--input VIDEO --output VIDEO ...] [--production] [--chunk-seconds N] [--max-retries N] [--work-root DIR] [--minimum-free-bytes N] [--provider-root DIR] [--runner PATH] [--cloud-config PATH] [--cancel-file PATH]"
     );
 }
