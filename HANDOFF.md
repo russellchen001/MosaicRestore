@@ -37,3 +37,6 @@ Cloud compute costs are paid directly by the user.
 Single-video Mosaic Core MVP:
 input → detect → temporal track → restore → overlap/fusion → encode.
 No Desktop UI, AI-OS integration, cloud provisioning, custom training, or realtime playback in P1.
+
+## P1 Technical Decision
+Mosaic Core is a Rust library. ML implementations and external runtimes remain behind Provider adapters so Desktop and AI-OS can share the same Core contract.
