@@ -5,3 +5,5 @@ benchmark/samples/
 benchmark/results/
 
 core/target/
+desktop/.build/
+desktop/build/

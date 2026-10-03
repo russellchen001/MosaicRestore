@@ -1,7 +1,7 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-P1 — Mosaic Core MVP complete on 2026-10-03.
+P2 — Desktop App complete on 2026-10-03.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -67,3 +67,23 @@ NVIDIA/Jasna adapter contract:
 - Real end-to-end smoke restore passed through Local Lada on Apple MPS; the restored MP4 was validated with ffprobe.
 - NVIDIA/Jasna execution was contract-tested with a fixture runner because this Mac has no NVIDIA runtime. Real NVIDIA infrastructure remains outside P1.
 - `benchmark/samples`, `benchmark/results`, `benchmark/lada-upstream` and `core/target` remain untracked and ignored.
+
+## P2 Scope
+Native macOS Desktop MVP:
+choose one input video → restore → show progress → cancel → reveal completed output.
+Provider, detector, restorer and backend details are hidden under Advanced.
+
+## P2 Technical Decision
+Desktop is a dependency-free SwiftUI app packaged as `MosaicRestore.app`.
+It invokes the existing Rust Mosaic Core executable and consumes the P1 progress/cancellation contract; restoration logic is not duplicated in Swift.
+Local Lada on Apple MPS is the default. Cloud/NVIDIA remains an Advanced provider entry that accepts an external Jasna runner and does not block local Desktop use.
+The external Lada and Jasna runtimes remain outside the app source; no AGPL upstream source is copied into Desktop or Core.
+
+## P2 Verification
+- `verify/verify_p2_desktop.sh` is the complete P2 acceptance entry point.
+- The release app bundle builds, is ad-hoc signed, and contains both the SwiftUI executable and Rust Mosaic Core executable.
+- Desktop command generation covers Local Lada and Cloud/NVIDIA provider contracts; progress mapping and cancellation behavior pass executable checks.
+- The packaged Core completed a real Local Lada/MPS smoke restore and produced a readable MP4.
+- The app UI process launch smoke check passed on macOS.
+- Real NVIDIA/Jasna execution is SKIP on this Apple Silicon Mac because no NVIDIA runtime is available; the provider boundary remains contract-tested.
+- `desktop/.build`, `desktop/build`, Core build output, benchmark samples/results and upstream runtimes remain ignored.
