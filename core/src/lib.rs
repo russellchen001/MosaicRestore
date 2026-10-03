@@ -1,4 +1,6 @@
+pub mod adapters;
 pub mod provider;
+pub mod runner;
 
 use std::path::PathBuf;
 
@@ -31,6 +33,12 @@ impl RestoreRequest {
         }
         if self.input == self.output {
             return Err("input and output must differ");
+        }
+        if self.output.exists() {
+            return Err("output already exists");
+        }
+        if self.output.parent().is_some_and(|parent| !parent.is_dir()) {
+            return Err("output directory does not exist");
         }
         Ok(())
     }

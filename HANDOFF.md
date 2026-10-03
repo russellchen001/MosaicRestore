@@ -1,7 +1,7 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-P1 — Mosaic Core MVP.
+P1 — Mosaic Core MVP complete on 2026-10-03.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -40,8 +40,30 @@ No Desktop UI, AI-OS integration, cloud provisioning, custom training, or realti
 
 ## P1 Technical Decision
 Mosaic Core is a Rust library. ML implementations and external runtimes remain behind Provider adapters so Desktop and AI-OS can share the same Core contract.
+Third-party runtimes execute as child processes; no AGPL Lada source is copied into Core.
+The Core runner owns request validation, task state, progress events, cancellation, output validation and provider-neutral error mapping.
 
 ## P1 Provider Decision
 Mosaic Core exposes a provider-neutral RestorationProvider contract.
 Execution providers declare supported compute backends before execution.
 Lada, Jasna, MPS, CUDA and TensorRT implementation details remain outside the Core contract.
+
+Local Lada adapter contract:
+- External `lada-cli` process.
+- Apple MPS backend.
+- Lada YOLO v4-fast detector.
+- BasicVSR++ v1.2 restorer.
+
+NVIDIA/Jasna adapter contract:
+- External runner supplied by path.
+- `lada-yolo-v4` detector.
+- `basicvsrpp` restorer.
+- TensorRT backend.
+
+## P1 Verification
+- `verify/verify_p1_mvp.sh` is the complete P1 acceptance entry point.
+- 8 Core behavior tests pass, including Local Lada and NVIDIA/Jasna adapter contracts, progress, cancellation and provider failure mapping.
+- The CLI runner builds and rejects invalid requests without overwriting an existing output.
+- Real end-to-end smoke restore passed through Local Lada on Apple MPS; the restored MP4 was validated with ffprobe.
+- NVIDIA/Jasna execution was contract-tested with a fixture runner because this Mac has no NVIDIA runtime. Real NVIDIA infrastructure remains outside P1.
+- `benchmark/samples`, `benchmark/results`, `benchmark/lada-upstream` and `core/target` remain untracked and ignored.

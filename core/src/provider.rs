@@ -1,9 +1,87 @@
-use crate::{ComputeBackend, RestoreRequest};
+use crate::{ComputeBackend, RestoreRequest, TaskState};
+use std::fmt;
 use std::path::PathBuf;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RestoreResult {
     pub output: PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RestoreErrorKind {
+    InvalidRequest,
+    UnsupportedBackend,
+    ProviderUnavailable,
+    ExecutionFailed,
+    OutputMissing,
+    Cancelled,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RestoreError {
+    pub kind: RestoreErrorKind,
+    pub message: String,
+}
+
+impl RestoreError {
+    pub fn new(kind: RestoreErrorKind, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            message: message.into(),
+        }
+    }
+}
+
+impl fmt::Display for RestoreError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{}", self.message)
+    }
+}
+
+impl std::error::Error for RestoreError {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProgressUpdate {
+    pub percent: u8,
+    pub state: TaskState,
+    pub stage: &'static str,
+}
+
+pub trait ProgressReporter: Send + Sync {
+    fn report(&self, update: ProgressUpdate);
+}
+
+impl<F> ProgressReporter for F
+where
+    F: Fn(ProgressUpdate) + Send + Sync,
+{
+    fn report(&self, update: ProgressUpdate) {
+        self(update);
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct CancellationToken(Arc<AtomicBool>);
+
+impl CancellationToken {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::SeqCst);
+    }
+    pub fn is_cancelled(&self) -> bool {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+pub struct RestoreControl<'a> {
+    pub cancellation: &'a CancellationToken,
+    pub progress: &'a dyn ProgressReporter,
 }
 
 pub trait RestorationProvider {
@@ -14,20 +92,33 @@ pub trait RestorationProvider {
     fn restore(
         &self,
         request: &RestoreRequest,
-    ) -> Result<RestoreResult, &'static str>;
+        control: &RestoreControl<'_>,
+    ) -> Result<RestoreResult, RestoreError>;
 }
 
-pub fn execute_with<P: RestorationProvider>(
-    provider: &P,
+pub fn execute_with(
+    provider: &dyn RestorationProvider,
     request: &RestoreRequest,
-) -> Result<RestoreResult, &'static str> {
-    request.validate()?;
+    control: &RestoreControl<'_>,
+) -> Result<RestoreResult, RestoreError> {
+    request
+        .validate()
+        .map_err(|message| RestoreError::new(RestoreErrorKind::InvalidRequest, message))?;
 
     if !provider.supports(request.backend) {
-        return Err("provider does not support requested backend");
+        return Err(RestoreError::new(
+            RestoreErrorKind::UnsupportedBackend,
+            "provider does not support requested backend",
+        ));
+    }
+    if control.cancellation.is_cancelled() {
+        return Err(RestoreError::new(
+            RestoreErrorKind::Cancelled,
+            "restore cancelled",
+        ));
     }
 
-    provider.restore(request)
+    provider.restore(request, control)
 }
 
 #[cfg(test)]
@@ -36,6 +127,7 @@ mod tests {
     use std::fs;
 
     struct MpsOnlyProvider;
+    const NO_PROGRESS: fn(ProgressUpdate) = |_| {};
 
     impl RestorationProvider for MpsOnlyProvider {
         fn name(&self) -> &'static str {
@@ -49,7 +141,8 @@ mod tests {
         fn restore(
             &self,
             request: &RestoreRequest,
-        ) -> Result<RestoreResult, &'static str> {
+            _control: &RestoreControl<'_>,
+        ) -> Result<RestoreResult, RestoreError> {
             Ok(RestoreResult {
                 output: request.output.clone(),
             })
@@ -73,8 +166,13 @@ mod tests {
             backend: ComputeBackend::AppleMps,
         };
 
-        let result =
-            execute_with(&MpsOnlyProvider, &request).expect("supported backend should execute");
+        let cancellation = CancellationToken::new();
+        let control = RestoreControl {
+            cancellation: &cancellation,
+            progress: &NO_PROGRESS,
+        };
+        let result = execute_with(&MpsOnlyProvider, &request, &control)
+            .expect("supported backend should execute");
 
         assert_eq!(result.output, output);
 
@@ -92,11 +190,16 @@ mod tests {
             backend: ComputeBackend::NvidiaCuda,
         };
 
-        let result = execute_with(&MpsOnlyProvider, &request);
+        let cancellation = CancellationToken::new();
+        let control = RestoreControl {
+            cancellation: &cancellation,
+            progress: &NO_PROGRESS,
+        };
+        let result = execute_with(&MpsOnlyProvider, &request, &control);
 
         assert_eq!(
-            result,
-            Err("provider does not support requested backend")
+            result.unwrap_err().kind,
+            RestoreErrorKind::UnsupportedBackend
         );
 
         let _ = fs::remove_file(input);
