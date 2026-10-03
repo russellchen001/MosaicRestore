@@ -1,6 +1,7 @@
 pub mod adapters;
 pub mod provider;
 pub mod runner;
+pub mod workflow;
 
 use std::path::PathBuf;
 

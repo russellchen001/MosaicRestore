@@ -27,7 +27,7 @@ private struct RestoreView: View {
             } label: {
                 HStack {
                     Image(systemName: "film")
-                    Text(model.inputURL?.lastPathComponent ?? "Choose Video")
+                    Text(model.inputURLs.isEmpty ? "Choose Videos" : (model.inputURLs.count == 1 ? model.inputURLs[0].lastPathComponent : "\(model.inputURLs.count) videos selected"))
                     Spacer()
                     Image(systemName: "chevron.right")
                 }

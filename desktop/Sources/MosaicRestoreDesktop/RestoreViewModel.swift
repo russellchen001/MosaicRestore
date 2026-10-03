@@ -5,8 +5,8 @@ import SwiftUI
 
 @MainActor
 final class RestoreViewModel: ObservableObject {
-    @Published var inputURL: URL?
-    @Published var outputURL: URL?
+    @Published var inputURLs: [URL] = []
+    @Published var outputURLs: [URL] = []
     @Published var provider: RestoreProvider = .local
     @Published var providerRoot = "~/MosaicRestore/benchmark/lada-upstream"
     @Published var jasnaRunner = ""
@@ -21,25 +21,26 @@ final class RestoreViewModel: ObservableObject {
     private var outputBuffer = ""
 
     var canRestore: Bool {
-        inputURL != nil && !isRunning && (provider == .local || !jasnaRunner.isEmpty)
+        !inputURLs.isEmpty && !isRunning && (provider == .local || !jasnaRunner.isEmpty)
     }
 
     func chooseInput() {
         let panel = NSOpenPanel()
         panel.title = "Choose a video"
         panel.allowedContentTypes = [.movie]
-        panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        inputURL = url
-        outputURL = url.deletingPathExtension()
-            .appendingPathExtension("restored.mp4")
-        status = "Ready to restore"
+        panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK, !panel.urls.isEmpty else { return }
+        inputURLs = panel.urls
+        outputURLs = panel.urls.map {
+            $0.deletingPathExtension().appendingPathExtension("restored.mp4")
+        }
+        status = inputURLs.count == 1 ? "Ready to restore" : "Ready to restore \(inputURLs.count) videos"
         progress = 0
     }
 
     func restore() {
-        guard let inputURL, let outputURL else { return }
-        guard !FileManager.default.fileExists(atPath: outputURL.path) else {
+        guard !inputURLs.isEmpty, inputURLs.count == outputURLs.count else { return }
+        guard !outputURLs.contains(where: { FileManager.default.fileExists(atPath: $0.path) }) else {
             errorMessage = "The output file already exists. Move or rename it, then try again."
             return
         }
@@ -50,8 +51,8 @@ final class RestoreViewModel: ObservableObject {
                 .appendingPathComponent("mosaic-restore-\(UUID().uuidString).cancel")
             let command = RestoreCommand(
                 provider: provider,
-                input: inputURL,
-                output: outputURL,
+                inputs: inputURLs,
+                outputs: outputURLs,
                 providerRoot: providerRoot,
                 jasnaRunner: jasnaRunner,
                 cancelFile: cancelURL
@@ -95,8 +96,8 @@ final class RestoreViewModel: ObservableObject {
     }
 
     func showOutput() {
-        guard let outputURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([outputURL])
+        guard !outputURLs.isEmpty else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(outputURLs)
     }
 
     private func consume(_ text: String) {
@@ -110,8 +111,8 @@ final class RestoreViewModel: ObservableObject {
             if let friendly = ProgressLineParser.friendlyStatus(from: line) {
                 status = friendly
             }
-            if line.contains("FAIL P1 restore") {
-                errorMessage = line.replacingOccurrences(of: "FAIL P1 restore — ", with: "")
+            if line.contains("FAIL restore") {
+                errorMessage = line.replacingOccurrences(of: "FAIL restore — ", with: "")
             }
         }
     }
@@ -122,8 +123,8 @@ final class RestoreViewModel: ObservableObject {
         if let cancelFile { try? FileManager.default.removeItem(at: cancelFile) }
         self.cancelFile = nil
 
-        if exitCode == 0, let outputURL,
-           FileManager.default.fileExists(atPath: outputURL.path) {
+        if exitCode == 0, !outputURLs.isEmpty,
+           outputURLs.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) {
             progress = 1
             status = "Complete"
         } else if status == "Cancelling…" || status == "Cancelled" {

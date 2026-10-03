@@ -9,8 +9,8 @@ public enum RestoreProvider: String, CaseIterable, Identifiable {
 
 public struct RestoreCommand {
     public let provider: RestoreProvider
-    public let input: URL
-    public let output: URL
+    public let inputs: [URL]
+    public let outputs: [URL]
     public let providerRoot: String
     public let jasnaRunner: String
     public let cancelFile: URL
@@ -24,8 +24,24 @@ public struct RestoreCommand {
         cancelFile: URL
     ) {
         self.provider = provider
-        self.input = input
-        self.output = output
+        self.inputs = [input]
+        self.outputs = [output]
+        self.providerRoot = providerRoot
+        self.jasnaRunner = jasnaRunner
+        self.cancelFile = cancelFile
+    }
+
+    public init(
+        provider: RestoreProvider,
+        inputs: [URL],
+        outputs: [URL],
+        providerRoot: String,
+        jasnaRunner: String,
+        cancelFile: URL
+    ) {
+        self.provider = provider
+        self.inputs = inputs
+        self.outputs = outputs
         self.providerRoot = providerRoot
         self.jasnaRunner = jasnaRunner
         self.cancelFile = cancelFile
@@ -34,10 +50,14 @@ public struct RestoreCommand {
     public var arguments: [String] {
         var result = [
             "--provider", provider == .local ? "local-lada" : "nvidia-jasna",
-            "--input", input.path,
-            "--output", output.path,
+            "--production",
+            "--chunk-seconds", "300",
+            "--max-retries", "1",
             "--cancel-file", cancelFile.path
         ]
+        for (input, output) in zip(inputs, outputs) {
+            result += ["--input", input.path, "--output", output.path]
+        }
         if provider == .local {
             result += ["--provider-root", NSString(string: providerRoot).expandingTildeInPath]
         } else {
@@ -62,6 +82,8 @@ public enum ProgressLineParser {
         if line.contains("accepted") || line.contains("validating") { return "Preparing…" }
         if line.contains("starting-provider") { return "Starting restoration…" }
         if line.contains("restoring") { return "Restoring video…" }
+        if line.contains("checkpoint-resumed") { return "Resuming previous work…" }
+        if line.contains("chunk-completed") { return "Restoring video…" }
         if line.contains("output-validated") { return "Checking output…" }
         if line.contains("completed") { return "Complete" }
         if line.contains("cancelled") { return "Cancelled" }

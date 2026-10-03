@@ -23,11 +23,26 @@ let local = RestoreCommand(
 )
 check(local.arguments == [
     "--provider", "local-lada",
+    "--production",
+    "--chunk-seconds", "300",
+    "--max-retries", "1",
+    "--cancel-file", "/tmp/cancel",
     "--input", "/tmp/input video.mp4",
     "--output", "/tmp/output video.mp4",
-    "--cancel-file", "/tmp/cancel",
     "--provider-root", "/tmp/lada"
 ], "Local desktop command uses the Mosaic Core contract")
+
+let batch = RestoreCommand(
+    provider: .local,
+    inputs: [URL(fileURLWithPath: "/tmp/a.mp4"), URL(fileURLWithPath: "/tmp/b.mp4")],
+    outputs: [URL(fileURLWithPath: "/tmp/a.restored.mp4"), URL(fileURLWithPath: "/tmp/b.restored.mp4")],
+    providerRoot: "/tmp/lada",
+    jasnaRunner: "",
+    cancelFile: URL(fileURLWithPath: "/tmp/cancel")
+)
+check(batch.arguments.filter { $0 == "--input" }.count == 2 &&
+      batch.arguments.filter { $0 == "--output" }.count == 2,
+      "Desktop submits an ordered production queue")
 
 let cloud = RestoreCommand(
     provider: .nvidia,

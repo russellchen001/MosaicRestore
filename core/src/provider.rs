@@ -18,6 +18,8 @@ pub enum RestoreErrorKind {
     ProviderUnavailable,
     ExecutionFailed,
     OutputMissing,
+    OutputInvalid,
+    InsufficientDiskSpace,
     Cancelled,
 }
 

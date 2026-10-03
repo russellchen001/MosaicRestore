@@ -1,7 +1,7 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-P2 — Desktop App complete on 2026-10-03.
+P3 — Long Video Reliability & Production Workflow complete on 2026-10-03.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -87,3 +87,25 @@ The external Lada and Jasna runtimes remain outside the app source; no AGPL upst
 - The app UI process launch smoke check passed on macOS.
 - Real NVIDIA/Jasna execution is SKIP on this Apple Silicon Mac because no NVIDIA runtime is available; the provider boundary remains contract-tested.
 - `desktop/.build`, `desktop/build`, Core build output, benchmark samples/results and upstream runtimes remain ignored.
+
+## P3 Scope
+Production workflow for videos lasting tens of minutes to hours:
+chunk planning and sequential processing → checkpoint/resume → bounded retry → validated assembly → cleanup.
+Multiple Desktop selections form one ordered batch with task-level aggregate progress and a safe stop boundary.
+
+## P3 Technical Decision
+Long-video lifecycle and queue semantics belong in Rust Mosaic Core so Desktop and future AI-OS integration share the same behavior.
+Core uses `ffmpeg`/`ffprobe` for provider-neutral chunking, assembly, readability and duration validation; restoration remains behind the existing Local Lada/MPS and NVIDIA/Jasna provider contract.
+Each task has a deterministic workspace and atomically written checkpoint. Success atomically moves the validated output into place and removes task files; cancellation or failure keeps completed chunks for resume.
+The queue is sequential and stops safely on the first failed or cancelled task. Each chunk receives one automatic retry by default.
+Desktop remains a compact SwiftUI surface: selecting multiple videos creates a queue, while provider/runtime details remain under Advanced.
+No AGPL upstream source is copied into Core or Desktop.
+
+## P3 Verification
+- `verify/verify_p3_long_video.sh` is the complete P3 acceptance entry point.
+- Real short MP4 fixtures exercise a four-chunk plan, cancellation and unexpected process death after one completed chunk, checkpoint resume without repeating completed work, and final readable output with reasonable duration.
+- A provider fixture verifies one bounded retry after failure and successful recovery.
+- Disk-space preflight rejects an impossible requirement before output creation.
+- Successful tasks remove their workspaces; cancelled/failed tasks retain only resumable task state.
+- A two-item batch verifies ordered Running/Succeeded terminal states and readable outputs.
+- P1, P2 and P3 verification scripts pass together. Real NVIDIA/Jasna remains SKIP on this Apple Silicon Mac when no NVIDIA runtime is available.

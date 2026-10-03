@@ -7,3 +7,4 @@ benchmark/results/
 core/target/
 desktop/.build/
 desktop/build/
+.mosaic-restore/
