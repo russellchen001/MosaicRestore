@@ -40,3 +40,8 @@ No Desktop UI, AI-OS integration, cloud provisioning, custom training, or realti
 
 ## P1 Technical Decision
 Mosaic Core is a Rust library. ML implementations and external runtimes remain behind Provider adapters so Desktop and AI-OS can share the same Core contract.
+
+## P1 Provider Decision
+Mosaic Core exposes a provider-neutral RestorationProvider contract.
+Execution providers declare supported compute backends before execution.
+Lada, Jasna, MPS, CUDA and TensorRT implementation details remain outside the Core contract.
