@@ -1,0 +1,30 @@
+=== MosaicRestore P0 Environment ===
+
+=== Hardware ===
+Architecture: arm64
+macOS: 27.0
+Chip: Chip: Apple M4
+Memory: Memory: 16 GB
+
+=== Required Tools ===
+✓ git: /opt/homebrew/bin/git
+✓ python3: /opt/homebrew/bin/python3
+✓ uv: /opt/homebrew/bin/uv
+✓ ffmpeg: /opt/homebrew/bin/ffmpeg
+✓ brew: /opt/homebrew/bin/brew
+
+=== Versions ===
+git: git version 2.55.0
+python3: Python 3.14.6
+uv: uv 0.12.0 (Homebrew 2026-07-28 aarch64-apple-darwin)
+ffmpeg: ffmpeg version 8.1.2 Copyright (c) 2000-2026 the FFmpeg developers
+brew: Homebrew 7.0.2
+
+=== Apple GPU Check ===
+✓ Apple Silicon detected
+✓ Metal support detected
+
+=== Disk ===
+/dev/disk3s5   460Gi   244Gi   141Gi    64%    1.8M  1.5G    0%   /System/Volumes/Data
+
+PASS P0 environment
