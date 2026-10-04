@@ -1,10 +1,11 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-P1–P5 are COMPLETE. All three execution chains are genuinely accepted: Local Computer (Apple Silicon/MPS), Cloud Compute (prior real RunPod CUDA/SSH lifecycle), and Agent Cloud Computer (real Linux GPU desktop + GUI agent). AI-OS v2.0 retains only host wiring/orchestration and host-level acceptance; no missing MosaicRestore provider lifecycle is deferred to it.
+v1.0.0 RELEASE CLOSURE is COMPLETE for the source release. P1–P5 and all three execution chains are genuinely accepted: Local Computer (Apple Silicon/MPS), Cloud Compute (real RunPod CUDA/SSH lifecycle), and Agent Cloud Computer (real Linux GPU desktop + GUI agent). AI-OS v2.0 retains only host wiring/orchestration and host-level acceptance; no missing MosaicRestore provider lifecycle is deferred to it.
 P5 acceptance combines the preserved authoritative main-chain window on RTX 4090 `459c1x9gvzwi9g` with a cancellation-only window on RTX 4090 `nl5lb1f156bzzm`. The main chain was NOT rerun: visible GUI launch, CUDA/Lada, real desktop/agent transport disconnect/reconnect, stable Lada PID/start time, progress, download, SHA-256 and ffprobe remain authoritative. The bounded-upload repair enabled genuine GUI cancellation with verified task, Lada and terminal exit.
 Final P1–P5 serial regressions, 12 Linux-agent behavior tests, Rust fmt, Clippy `-D warnings`, Swift Release and Desktop glass acceptance pass. Fixture regressions remain explicitly distinct from the real external evidence.
-All P5 RunPod instances are stopped; the final instance shows compute and container storage Not running, $0.00/hour. Latest cancellation-window account balance is $7.82→$7.75 (rounded account-wide $0.07 debit, not an isolated invoice); no top-up or persistent volume was created. The separate final long-video visual-quality review and Apple signing/notarization remain distribution-release blockers, not missing P5 lifecycle behavior.
+All P5 RunPod instances are stopped; the final instance shows compute and container storage Not running, $0.00/hour. Latest cancellation-window account balance is $7.82→$7.75 (rounded account-wide $0.07 debit, not an isolated invoice); no top-up or persistent volume was created. Apple signing/notarization remains an external distribution blocker, not missing P5 lifecycle behavior.
+The final real long-video quality gate passed on 2026-10-05 through the existing Local Computer production path, so no new RunPod resource or charge was required. Apple Developer ID signing/notarization remains the only external macOS distribution blocker; it does not block the source/tag/GitHub release.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -139,18 +140,20 @@ P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jo
 - P1, P2, P3, and P4 acceptance scripts pass together. P2's local-machine NVIDIA probe remains an expected `SKIP` on Apple Silicon; P4 is the authoritative real cloud NVIDIA acceptance.
 - P4 has no remaining implementation or acceptance blocker and may be formally closed.
 
-## Release Candidate Closure
+## v1.0.0 Release Closure
 - Release-candidate baseline started from `416a87539a3fb6e90c57c5ffb60c93a909eb286e` with a clean worktree.
-- P1 Core, P1 Provider, P1 MVP, P2 Desktop, P3 Long Video, and P4 Cloud Execution local acceptance all pass. P4 real NVIDIA is not rerun because the completed real RTX 4090 acceptance remains authoritative and RunPod is intentionally stopped.
+- P1 Core, P1 Provider, P1 MVP, P2 Desktop, P3 Long Video, P4 Cloud Execution, and P5 Agent Cloud Computer local acceptance all pass. P4/P5 external GPU evidence is preserved as authoritative and is not rerun because RunPod is intentionally stopped.
 - Rust formatting and Clippy with warnings denied pass; the Swift release build passes.
 - Desktop now renders an unavailable cloud price as `Cost unknown` instead of a fake dollar amount, clears stale estimates before a new selection/run, and rejects a whitespace-only cloud configuration before submission.
 - `desktop/build/MosaicRestore.app` is an arm64 release app with a valid strict ad-hoc signature. The installed `/Applications/MosaicRestore.app` passes signature verification and launches to its initial usable window.
 - Desktop uses one native SwiftUI glass visual system: adaptive Material cards and controls, a single cool accent, consistent rounded geometry, restrained hover/pressed feedback, and solid-surface fallbacks for reduced transparency. The input, Local/Cloud selection, progress, errors, Advanced settings, and actions share these reusable components without changing Core behavior.
 - The RC glass baseline uses only public AppKit/SwiftUI APIs: a hidden-titlebar full-size content window, transparent `NSWindow`, and `NSVisualEffectView` with behind-window blending provide real window-level transmission. Reusable glass cards, buttons, and the custom Local/Cloud segmented control add adaptive blur, highlight edges, depth, hover/pressed/disabled/error states, and Reduce Motion/Reduce Transparency fallbacks.
-- `verify/verify_glass_ui.sh` performs an actual Release build, validates both bundled executables and the strict app signature, reads bundle metadata, and launches the Desktop process. It passes together with P1–P4 regression, Rust formatting, and Clippy with warnings denied; the installed `/Applications/MosaicRestore.app` was relaunched from a single fresh process and its transparent titlebar, layered cards, and segmented selection states were visually confirmed.
+- `verify/verify_glass_ui.sh` performs an actual Release build, validates both bundled executables and the strict app signature, reads bundle metadata, and launches the Desktop process. It passes together with P1–P5 regression, 12 Linux-agent tests, Rust formatting, Clippy with warnings denied, and Swift Release; the installed `/Applications/MosaicRestore.app` was relaunched from a single fresh process and its transparent titlebar, layered cards, and segmented selection states were visually confirmed.
 - The complete repository history is published independently at `https://github.com/russellchen001/MosaicRestore` with PUBLIC visibility. Its only remote is this repository's `origin`; no AI-OS remote is configured and history was not rewritten.
 - `desktop/build_app.sh` resolves SwiftPM's active release binary directory instead of copying from the legacy `.build/release` path, preventing a stale Desktop executable from being packaged under newer Xcode output layouts.
 - This Mac has no Apple Developer signing identity. Developer ID signing, notarization, and Gatekeeper-ready external distribution remain a release blocker outside the repository; local ad-hoc installation is verified.
+- Version surfaces are closed at Core `1.0.0` and Desktop `1.0.0` (build `100`). The public GitHub release is source-only unless a properly Developer ID-signed and notarized app is produced later.
+- The first P3 verifier invocation hit the known shared-fixture race while its embedded Core tests ran in parallel (`transport=ssh` leaked from another test). Every P3 behavior check still passed; the authoritative `RUST_TEST_THREADS=1` rerun passed P3–P5, 19 Core tests, 12 Linux-agent tests, fmt, Clippy, Swift Release, Desktop launch, strict ad-hoc signature, and glass UI acceptance. No product code was changed to mask the test isolation issue.
 
 ## P5 Scope
 Agent Cloud Computer execution on a user-rented GPU desktop:
@@ -246,16 +249,15 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 - AI-OS must supply external runtime or cloud configuration at the adapter boundary. Vendor credentials, SSH keys, RunPod APIs, Lada source, and Jasna source must not enter Core or AI-OS persistence.
 - No AI-OS-specific adapter or vendor branch is added. MosaicRestore itself owns and accepts all three execution-provider lifecycles, including Agent Cloud Computer. Only AI-OS host wiring to the stable Mosaic Core/CLI contract and its host-level end-to-end acceptance are deferred to AI-OS v2.0.
 
-## Final Long-Video Cloud Acceptance Checklist
-1. Start the retained RunPod only for the acceptance window; confirm the saved SSH profile, `nvidia-smi`, remote runner, pinned Lada commit, weights, and cache without changing Core.
-2. Record input path, duration, codec, resolution, size, and SHA-256 for the selected real long video; keep media and credentials outside git.
-3. Run the existing production path with the saved cloud configuration. Confirm configuration/readiness, upload, honest time/cost estimate (numeric or `unknown`), chunk progress, cache reuse, download, and terminal success.
-4. If the run is interrupted, resume from the durable checkpoint and confirm completed chunks are not repeated. Do not manufacture a retry during the final uninterrupted quality run.
-5. Validate the restored output with `ffprobe`; compare duration to input, record codec/resolution/size/SHA-256, and perform the final visual mosaic-restoration review.
-6. Confirm successful local workspace cleanup, no remote Lada/Jasna process remains, retain only the intended remote cache, then stop RunPod. Do not terminate it until cache retention is no longer needed.
+## Final Long-Video Quality Acceptance — PASS (2026-10-05)
+- The selected real sample stayed outside git. Input: H.264/AAC, 1280×720, 29.97 fps, 4,224.253 seconds, 2,116,790,232 bytes, 126,600 video frames, SHA-256 `6f88975ec5e1bab8437d50d60ccd3d8b87f44e0f6edb6781cc348231b106464c`.
+- The existing production path ran locally with external Lada/MPS to avoid unnecessary cloud cost: 15 deterministic 300-second chunks, durable checkpoint updates after every completed chunk, zero retries, validated assembly, terminal `PASS restore`, and successful workspace cleanup. Existing P3 interruption/process-death tests remain the authoritative resume evidence; this uninterrupted quality run did not manufacture a failure.
+- Output: H.264/AAC, 1280×720, 29.97 fps, 4,224.736 seconds, 1,260,324,533 bytes, 126,600 video frames, SHA-256 `483f852ad75bbd869d053cbdf1802a908f0c090790113d2bd6b515d1fc382932`. Duration delta is +0.483 seconds.
+- Full audio/video decode passes. Video and audio DTS are monotonic; frame seek succeeds around every 300-second chunk boundary. Freeze detection reports the same three source events in input and output, so the workflow introduced no new freeze event.
+- Visual review covered 15 full-duration sample points, targeted high-change frames, and a consecutive restored sequence. Sampled mosaics were replaced consistently with no obvious missed target, timing jump, flicker, or severe artifact. This is a bounded release-quality review, not a claim that AI reconstruction recovers factual hidden pixels.
+- RunPod was not started for this gate. Incremental RunPod cost is US$0.00; the previously accepted P5 instances remain recorded as stopped at US$0.00/hour.
 
 ## Remaining Release Blockers
-- Final real long-video cloud quality acceptance has not yet been run; it requires intentionally restarting RunPod.
 - No P5 execution-lifecycle blocker remains: real GPU desktop/GUI launch/reconnect/download/hash/ffprobe/cancel/process-exit and final stop all pass.
-- External distribution requires a valid Apple Developer signing identity and notarization. The current app is verified only for local ad-hoc installation.
+- No source-release blocker remains. External app distribution requires a valid Apple Developer signing identity and notarization; the current app is verified only for local ad-hoc installation and must not be presented as a formally distributed macOS build.
 - AI-OS v2.0 only needs host wiring to the accepted provider selection/config/progress/cancel contract; it must not add missing MosaicRestore-side lifecycle behavior. The AI-OS repository was not modified.
