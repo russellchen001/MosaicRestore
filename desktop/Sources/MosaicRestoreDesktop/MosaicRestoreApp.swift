@@ -66,7 +66,7 @@ private struct RestoreView: View {
 
             Spacer()
 
-            Label(model.provider == .local ? "Local" : "Cloud", systemImage: model.provider == .local ? "laptopcomputer" : "cloud")
+            Label(model.provider.headerTitle, systemImage: model.provider.symbolName)
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -115,9 +115,7 @@ private struct RestoreView: View {
 
                 GlassSegmentedControl(selection: $model.provider, isEnabled: !model.isRunning)
 
-                Text(model.provider == .local
-                     ? "Runs privately on this Mac with Apple Silicon acceleration."
-                     : "Uses your own NVIDIA account or host. GPU charges go directly to your provider.")
+                Text(model.provider.descriptionText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -161,9 +159,15 @@ private struct RestoreView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Divider().opacity(0.5)
 
-                    if model.provider == .local {
+                    switch model.provider {
+                    case .local:
                         GlassTextField(title: "Local runtime", text: $model.providerRoot)
-                    } else {
+                    case .agentCloud:
+                        GlassTextField(title: "Agent cloud configuration", text: $model.agentCloudConfig)
+                        Label("The external desktop agent owns GUI control, credentials, and session transport.", systemImage: "lock.shield")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    case .nvidia:
                         GlassTextField(title: "Cloud configuration", text: $model.cloudConfig)
                         Label("Credentials and provider details stay outside MosaicRestore.", systemImage: "lock.shield")
                             .font(.caption)
@@ -359,10 +363,7 @@ private struct GlassSegmentedControl: View {
                 Button {
                     selection = provider
                 } label: {
-                    Label(
-                        provider == .local ? "This Mac" : "Cloud GPU",
-                        systemImage: provider == .local ? "laptopcomputer" : "cloud"
-                    )
+                    Label(provider.segmentTitle, systemImage: provider.symbolName)
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(selection == provider ? Color.primary : Color.secondary)
                     .frame(maxWidth: .infinity)
@@ -403,6 +404,43 @@ private struct GlassSegmentedControl: View {
         .opacity(isEnabled ? 1 : 0.5)
         .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82), value: selection)
         .accessibilityLabel("Processing location")
+    }
+}
+
+private extension RestoreProvider {
+    var segmentTitle: String {
+        switch self {
+        case .local: "This Mac"
+        case .agentCloud: "Agent PC"
+        case .nvidia: "Cloud GPU"
+        }
+    }
+
+    var headerTitle: String {
+        switch self {
+        case .local: "Local"
+        case .agentCloud: "Agent Cloud"
+        case .nvidia: "Cloud"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .local: "laptopcomputer"
+        case .agentCloud: "desktopcomputer"
+        case .nvidia: "cloud"
+        }
+    }
+
+    var descriptionText: String {
+        switch self {
+        case .local:
+            "Runs privately on this Mac with Apple Silicon acceleration."
+        case .agentCloud:
+            "A remote desktop agent operates your rented GPU computer through its GUI session."
+        case .nvidia:
+            "Uses your own NVIDIA account or host. GPU charges go directly to your provider."
+        }
     }
 }
 

@@ -55,6 +55,29 @@ let cloud = RestoreCommand(
 check(cloud.arguments.contains("cloud-nvidia"), "Cloud NVIDIA provider entry is live")
 check(Array(cloud.arguments.suffix(2)) == ["--cloud-config", "/tmp/cloud.conf"],
       "Cloud configuration reaches Mosaic Core")
+
+let agentCloud = RestoreCommand(
+    provider: .agentCloud,
+    input: URL(fileURLWithPath: "/tmp/input.mp4"),
+    output: URL(fileURLWithPath: "/tmp/output.mp4"),
+    providerRoot: "",
+    cloudConfig: "",
+    agentCloudConfig: "/tmp/agent-cloud.conf",
+    cancelFile: URL(fileURLWithPath: "/tmp/cancel")
+)
+check(agentCloud.arguments.contains("agent-cloud-computer"),
+      "Agent Cloud Computer provider entry is live")
+check(Array(agentCloud.arguments.suffix(2)) == ["--agent-cloud-config", "/tmp/agent-cloud.conf"],
+      "Agent cloud configuration reaches Mosaic Core")
+check(ProgressLineParser.friendlyStatus(from: "30% Running agent-session-reconnecting") ==
+      "Reconnecting to the agent session…",
+      "Desktop maps agent session reconnect status")
+check(ProgressLineParser.friendlyStatus(from: "5% Running validating-agent-cloud-config") ==
+      "Checking agent cloud configuration…",
+      "Desktop maps agent configuration validation status")
+check(ProgressLineParser.cloudEstimate(from: "AGENT_CLOUD session_id=s1 estimated_seconds=90 estimated_cost_usd=0.30") ==
+      "Estimated 90s · $0.30 USD for the agent computer",
+      "Desktop shows agent computer time and cost estimate")
 check(ProgressLineParser.cloudEstimate(from: "CLOUD estimated_seconds=120 estimated_cost_usd=0.42") ==
       "Estimated 120s · $0.42 USD paid to your cloud provider",
       "Desktop shows cloud time and user-paid cost estimate")

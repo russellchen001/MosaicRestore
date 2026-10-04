@@ -1,0 +1,12 @@
+{
+  "root": "/workspace/p5/jobs",
+  "application_path": "/opt/lada/.venv/bin/lada-cli",
+  "ffprobe_path": "/usr/bin/ffprobe",
+  "weights": "/opt/lada/model_weights",
+  "command_template": "{application} --input {input} --output {output} --device cuda:0 --fp16 --mosaic-detection-model v4-fast --mosaic-restoration-model basicvsrpp-v1.2 --max-clip-length 60 --encoder libx264 --encoder-options '-crf 18 -preset fast'",
+  "token_env": "MOSAIC_AGENT_CLOUD_TOKEN",
+  "bind": "0.0.0.0",
+  "port": 8765,
+  "realtime_factor": 1.0,
+  "max_upload_bytes": 67108864
+}

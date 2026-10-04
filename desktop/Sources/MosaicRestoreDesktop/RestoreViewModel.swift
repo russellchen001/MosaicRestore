@@ -10,6 +10,7 @@ final class RestoreViewModel: ObservableObject {
     @Published var provider: RestoreProvider = .local
     @Published var providerRoot = "~/MosaicRestore/benchmark/lada-upstream"
     @Published var cloudConfig = "~/.config/mosaicrestore/cloud.conf"
+    @Published var agentCloudConfig = "~/.config/mosaicrestore/agent-cloud.conf"
     @Published var cloudEstimate: String?
     @Published var progress = 0.0
     @Published var status = "Choose a video to begin"
@@ -22,8 +23,15 @@ final class RestoreViewModel: ObservableObject {
     private var outputBuffer = ""
 
     var canRestore: Bool {
-        !inputURLs.isEmpty && !isRunning &&
-            (provider == .local || !cloudConfig.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        guard !inputURLs.isEmpty, !isRunning else { return false }
+        switch provider {
+        case .local:
+            return true
+        case .agentCloud:
+            return !agentCloudConfig.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case .nvidia:
+            return !cloudConfig.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
     }
 
     func chooseInput() {
@@ -60,6 +68,7 @@ final class RestoreViewModel: ObservableObject {
                 outputs: outputURLs,
                 providerRoot: providerRoot,
                 cloudConfig: cloudConfig,
+                agentCloudConfig: agentCloudConfig,
                 cancelFile: cancelURL
             )
             let task = Process()

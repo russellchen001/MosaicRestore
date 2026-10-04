@@ -1,0 +1,12 @@
+{
+  "root": "C:\\MosaicAgent\\jobs",
+  "application_path": "C:\\Lada\\lada-cli.exe",
+  "command_template": "& {application} --input {input} --output {output}",
+  "ffprobe_path": "C:\\ffmpeg\\bin\\ffprobe.exe",
+  "token_env": "MOSAIC_AGENT_CLOUD_TOKEN",
+  "bind": "127.0.0.1",
+  "port": 8765,
+  "hourly_cost_usd": 0.78,
+  "realtime_factor": 0.8,
+  "max_upload_bytes": 536870912000
+}

@@ -1,0 +1,35 @@
+# External runtime layer only; not the final P5 acceptance image.
+# Build on the Mac, never during a paid GPU window.
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive DISPLAY=:1 LADA_MODEL_WEIGHTS_DIR=/opt/lada/model_weights
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl git patch python3 python3-venv python3-tk \
+    ffmpeg xfce4 xfce4-terminal dbus-x11 tigervnc-standalone-server \
+    tigervnc-tools novnc websockify x11-utils xdotool scrot \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /opt/build && /opt/build/bin/pip install uv==0.8.17
+RUN git clone https://github.com/ladaapp/lada.git /opt/lada \
+    && cd /opt/lada && git checkout --detach 20cb34a20a83c72c87a991d2c949032c70085b16 \
+    && /opt/build/bin/uv sync --frozen --extra nvidia --python /usr/bin/python3
+RUN cd /opt/lada && for f in increase_mms_time_limit.patch \
+    remove_ultralytics_telemetry.patch fix_loading_mmengine_weights_on_torch26_and_higher.diff; \
+    do patch -u -p1 -d .venv/lib/python3.12/site-packages < patches/$f || exit 1; done
+RUN /opt/lada/.venv/bin/python -m ensurepip \
+    && /opt/lada/.venv/bin/python -m pip install PyAutoGUI==0.9.54 Pillow==11.3.0
+# Require an explicit immutable Hugging Face model revision; no mutable main.
+ARG MODEL_REVISION
+RUN test -n "$MODEL_REVISION" && mkdir -p /opt/lada/model_weights \
+    && for f in lada_mosaic_detection_model_v4_fast.pt \
+    lada_mosaic_restoration_model_generic_v1.2.pth; do \
+    curl -fL --retry 0 "https://huggingface.co/ladaapp/lada/resolve/$MODEL_REVISION/$f" \
+    -o "/opt/lada/model_weights/$f" || exit 1; done \
+    && cd /opt/lada/model_weights && sha256sum *.pt *.pth > SHA256SUMS
+RUN /opt/lada/.venv/bin/lada-cli --help >/dev/null \
+    && /opt/lada/.venv/bin/python -c 'import torch; assert torch.__version__.startswith("2.8.")' \
+    && ffprobe -version >/dev/null
+RUN mkdir -p /opt/p5/fixtures && ffmpeg -v error -f lavfi \
+    -i testsrc2=size=640x360:rate=24 -t 60 -c:v libx264 -pix_fmt yuv420p \
+    /opt/p5/fixtures/input.mp4
+WORKDIR /opt/lada
+# No desktop/agent/restore is auto-started in this runtime-only layer.
+# Final image must add Linux GUI agent + authenticated desktop startup + tests.

@@ -8,3 +8,5 @@ core/target/
 desktop/.build/
 desktop/build/
 .mosaic-restore/
+__pycache__/
+*.py[cod]
