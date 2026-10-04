@@ -1,3 +1,4 @@
+import AppKit
 import DesktopSupport
 import SwiftUI
 
@@ -8,11 +9,13 @@ struct MosaicRestoreApp: App {
             RestoreView()
                 .frame(minWidth: 680, minHeight: 620)
         }
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
     }
 }
 
 private struct RestoreView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var model = RestoreViewModel()
 
     var body: some View {
@@ -41,7 +44,7 @@ private struct RestoreView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: model.errorMessage)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: model.errorMessage)
     }
 
     private var header: some View {
@@ -110,15 +113,7 @@ private struct RestoreView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SectionLabel(title: "Processing", systemImage: "slider.horizontal.3")
 
-                Picker("Processing location", selection: $model.provider) {
-                    ForEach(RestoreProvider.allCases) { provider in
-                        Label(provider.rawValue, systemImage: provider == .local ? "laptopcomputer" : "cloud")
-                            .tag(provider)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .disabled(model.isRunning)
+                GlassSegmentedControl(selection: $model.provider, isEnabled: !model.isRunning)
 
                 Text(model.provider == .local
                      ? "Runs privately on this Mac with Apple Silicon acceleration."
@@ -222,24 +217,70 @@ private struct WindowBackdrop: View {
 
     var body: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
+            if reduceTransparency {
+                Color(nsColor: .windowBackgroundColor)
+            } else {
+                WindowMaterial()
 
-            if !reduceTransparency {
                 RadialGradient(
-                    colors: [Color.accentColor.opacity(colorScheme == .dark ? 0.18 : 0.12), .clear],
+                    colors: [Color.accentColor.opacity(colorScheme == .dark ? 0.24 : 0.16), .clear],
                     center: .topLeading,
                     startRadius: 20,
                     endRadius: 520
                 )
                 RadialGradient(
-                    colors: [Color.cyan.opacity(colorScheme == .dark ? 0.08 : 0.06), .clear],
+                    colors: [Color.cyan.opacity(colorScheme == .dark ? 0.13 : 0.09), .clear],
                     center: .bottomTrailing,
                     startRadius: 30,
                     endRadius: 460
                 )
+                LinearGradient(
+                    colors: [Color.white.opacity(colorScheme == .dark ? 0.025 : 0.12), .clear],
+                    startPoint: .top,
+                    endPoint: .center
+                )
             }
         }
         .ignoresSafeArea()
+    }
+}
+
+private struct WindowMaterial: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        WindowMaterialHost()
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        (nsView as? WindowMaterialHost)?.configureWindowIfAvailable()
+    }
+}
+
+private final class WindowMaterialHost: NSVisualEffectView {
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        material = .underWindowBackground
+        blendingMode = .behindWindow
+        state = .active
+        isEmphasized = true
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        configureWindowIfAvailable()
+    }
+
+    fileprivate func configureWindowIfAvailable() {
+        guard let window else { return }
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.styleMask.insert(.fullSizeContentView)
+        window.isMovableByWindowBackground = true
     }
 }
 
@@ -257,10 +298,27 @@ private struct GlassCard<Content: View>: View {
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(reduceTransparency
-                          ? AnyShapeStyle(Color(nsColor: .controlBackgroundColor))
-                          : AnyShapeStyle(.ultraThinMaterial))
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(reduceTransparency
+                              ? AnyShapeStyle(Color(nsColor: .controlBackgroundColor))
+                              : AnyShapeStyle(.ultraThinMaterial))
+
+                    if !reduceTransparency {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(colorScheme == .dark ? 0.09 : 0.3),
+                                        Color.accentColor.opacity(colorScheme == .dark ? 0.035 : 0.025),
+                                        Color.clear
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                    }
+                }
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -273,7 +331,78 @@ private struct GlassCard<Content: View>: View {
                         lineWidth: 1
                     )
             }
-            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.24 : 0.08), radius: 20, y: 9)
+            .overlay(alignment: .top) {
+                if !reduceTransparency {
+                    Capsule()
+                        .fill(Color.white.opacity(colorScheme == .dark ? 0.2 : 0.72))
+                        .frame(height: 1)
+                        .padding(.horizontal, 24)
+                        .blur(radius: 0.25)
+                }
+            }
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.28 : 0.09), radius: 22, y: 10)
+    }
+}
+
+private struct GlassSegmentedControl: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Namespace private var selectionNamespace
+
+    @Binding var selection: RestoreProvider
+    let isEnabled: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            ForEach(RestoreProvider.allCases) { provider in
+                Button {
+                    selection = provider
+                } label: {
+                    Label(
+                        provider == .local ? "This Mac" : "Cloud GPU",
+                        systemImage: provider == .local ? "laptopcomputer" : "cloud"
+                    )
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(selection == provider ? Color.primary : Color.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background {
+                    if selection == provider {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(reduceTransparency
+                                      ? AnyShapeStyle(Color(nsColor: .selectedContentBackgroundColor).opacity(0.2))
+                                      : AnyShapeStyle(.thinMaterial))
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .fill(Color.accentColor.opacity(colorScheme == .dark ? 0.13 : 0.1))
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .stroke(Color.white.opacity(colorScheme == .dark ? 0.18 : 0.72), lineWidth: 1)
+                        }
+                        .matchedGeometryEffect(id: "glass-selection", in: selectionNamespace)
+                        .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.22 : 0.08), radius: 8, y: 3)
+                    }
+                }
+                .disabled(!isEnabled)
+            }
+        }
+        .padding(5)
+        .background {
+            RoundedRectangle(cornerRadius: 15, style: .continuous)
+                .fill(reduceTransparency
+                      ? AnyShapeStyle(Color(nsColor: .controlBackgroundColor))
+                      : AnyShapeStyle(.ultraThinMaterial))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .stroke(Color.primary.opacity(0.09), lineWidth: 1)
+                }
+        }
+        .opacity(isEnabled ? 1 : 0.5)
+        .animation(reduceMotion ? nil : .spring(response: 0.28, dampingFraction: 0.82), value: selection)
+        .accessibilityLabel("Processing location")
     }
 }
 
