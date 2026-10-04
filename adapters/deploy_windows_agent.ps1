@@ -1,7 +1,7 @@
 param(
-    [string]$Application = 'C:\Lada\lada-cli.exe',
-    [string]$Ffprobe = 'C:\Lada\ffprobe.exe',
-    [string]$CommandTemplate = '& {application} --input {input} --output {output}',
+    [string]$Application = 'C:\Jasna\jasna.exe',
+    [string]$Ffprobe = 'C:\Jasna\ffprobe.exe',
+    [string]$CommandTemplate = '',
     [int]$Minutes = 25
 )
 $ErrorActionPreference = 'Stop'
@@ -9,7 +9,26 @@ $agent = $null
 $relay = $null
 try {
     if ($Minutes -lt 1 -or $Minutes -gt 25) { throw 'Session limit must be 1..25 minutes' }
-    foreach ($path in @($Application, $Ffprobe, "$PSScriptRoot\cloudflared.exe")) {
+    if (-not (Test-Path -LiteralPath $Application -PathType Leaf)) {
+        $roots = @('C:\Jasna', "$env:USERPROFILE\Jasna", "$env:USERPROFILE\Desktop", "$env:USERPROFILE\Downloads")
+        $found = @($roots | Where-Object { Test-Path $_ } | ForEach-Object {
+            Get-ChildItem -LiteralPath $_ -Filter jasna.exe -File -Recurse -Depth 4 -ErrorAction SilentlyContinue
+        } | Select-Object -ExpandProperty FullName -Unique)
+        if ($found.Count -ne 1) { throw "Expected exactly one existing Jasna runtime, found $($found.Count)" }
+        $Application = $found[0]
+    }
+    $jasnaRoot = Split-Path -Parent $Application
+    if (-not (Test-Path -LiteralPath $Ffprobe -PathType Leaf)) {
+        $Ffprobe = @("$jasnaRoot\ffprobe.exe", "$jasnaRoot\ffmpeg\bin\ffprobe.exe") |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        if (-not $Ffprobe) { $Ffprobe = (Get-Command ffprobe.exe -ErrorAction SilentlyContinue).Source }
+    }
+    $detector = "$jasnaRoot\model_weights\lada_mosaic_detection_model_v4_fast.pt"
+    $restorer = "$jasnaRoot\model_weights\lada_mosaic_restoration_model_generic_v1.2.pth"
+    if (-not $CommandTemplate) {
+        $CommandTemplate = "& {application} --input {input} --output {output} --device cuda:0 --fp16 --detection-model lada-yolo-v4 --restoration-model-name basicvsrpp --restoration-model-path '$restorer' --compile-basicvsrpp --max-clip-size 60 --temporal-overlap 8 --codec h264 --cq 18 --log-level info"
+    }
+    foreach ($path in @($Application, $Ffprobe, $detector, $restorer, "$PSScriptRoot\cloudflared.exe")) {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing prerequisite: $path" }
     }
     if ((Get-FileHash "$PSScriptRoot\cloudflared.exe" -Algorithm SHA256).Hash.ToLower() -ne 'f096265ec2fcbe9bb6e2d64268db167ced3fcbb83d894bdb9e2fcdb26f2ea7e2') {
@@ -34,7 +53,9 @@ try {
         root="$run\jobs"; application_path=$Application; ffprobe_path=$Ffprobe
         command_template=$CommandTemplate; token_env='MOSAIC_P5_TOKEN'
         bind='127.0.0.1'; port=8765; hourly_cost_usd=2.31
-        max_upload_bytes=268435456; realtime_factor=2.0
+        max_upload_bytes=268435456; realtime_factor=0.60; jasna_version='0.10.0'
+        jasna_models=@($detector, $restorer)
+        tensorrt_cache="$jasnaRoot\model_weights"
     } | ConvertTo-Json
     [IO.File]::WriteAllText("$run\agent.json", $config, (New-Object Text.UTF8Encoding $false))
     $agent = Start-Process $python -ArgumentList "`"$PSScriptRoot\windows_gui_agent.py`" --config `"$run\agent.json`"" -PassThru -RedirectStandardOutput "$run\agent.log" -RedirectStandardError "$run\agent-errors.log"

@@ -110,6 +110,8 @@ class AgentState:
     def readiness(self, job: str, session: str) -> None:
         root, _ = self.require_session(job, session)
         self.health()
+        if self.config.get("jasna_version"):
+            self.headless_readiness(job, session)
         try:
             import PIL  # noqa: F401
             import pywinauto  # noqa: F401
@@ -132,6 +134,37 @@ class AgentState:
         if not Desktop(backend="uia").windows():
             raise RuntimeError("interactive Windows desktop is unavailable")
         ImageGrab.grab().save(root / "desktop-ready.png")
+        (root / "gpu.txt").write_text(probe.stdout, encoding="utf-8")
+        metadata = read_json(self.metadata_path(job))
+        metadata["runtime"] = "jasna-windows-uia"
+        atomic_json(self.metadata_path(job), metadata)
+
+    def headless_readiness(self, job: str, session: str) -> None:
+        root, metadata = self.require_session(job, session)
+        self.health()
+        probe = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+        version = subprocess.run(
+            [self.config["application_path"], "--version"],
+            capture_output=True, text=True, timeout=30, check=False,
+        )
+        expected = str(self.config.get("jasna_version", "0.10.0"))
+        models = [Path(path) for path in self.config.get("jasna_models", [])]
+        cache = Path(self.config.get("tensorrt_cache", ""))
+        if probe.returncode or not probe.stdout.strip():
+            raise RuntimeError("NVIDIA GPU is unavailable")
+        if version.returncode or expected not in (version.stdout + version.stderr):
+            raise RuntimeError(f"Jasna version must be {expected}")
+        if not models or any(not path.is_file() for path in models):
+            raise RuntimeError("pinned Jasna model files are unavailable")
+        engines = list(cache.glob("*.engine")) if cache.is_dir() else []
+        if not engines:
+            raise RuntimeError("T4 TensorRT cache is unavailable; paid-window compilation is forbidden")
+        metadata.update({"runtime": "jasna-headless", "jasna_version": expected,
+                         "tensorrt_engines": [path.name for path in engines]})
+        atomic_json(self.metadata_path(job), metadata)
         (root / "gpu.txt").write_text(probe.stdout, encoding="utf-8")
 
     def processes(self, process_id: int) -> list[dict]:
@@ -292,6 +325,19 @@ class AgentState:
         atomic_json(self.metadata_path(job), metadata)
         return receipt
 
+    def start_headless(self, job: str, session: str) -> None:
+        root, metadata = self.require_session(job, session)
+        if not (root / "input.mp4").is_file():
+            raise FileNotFoundError("uploaded input is missing")
+        script = self.build_script(root)
+        process = subprocess.Popen(
+            ["powershell.exe", "-NoLogo", "-NoProfile", "-File", str(script)],
+            creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+        )
+        metadata.update({"state": "running", "started_at": time.time(),
+                         "powershell_pid": process.pid, "runtime": "jasna-headless"})
+        atomic_json(self.metadata_path(job), metadata)
+
     def status(self, job: str, session: str) -> dict:
         root, metadata = self.require_session(job, session)
         state_path = root / "state.txt"
@@ -358,6 +404,21 @@ class AgentState:
         atomic_json(self.metadata_path(job), metadata)
         (root / "state.txt").write_text("cancelled", encoding="utf-8")
 
+    def cancel_headless(self, job: str, session: str) -> None:
+        root, metadata = self.require_session(job, session)
+        process_id = int(metadata.get("powershell_pid", 0))
+        before = self.processes(process_id) if process_id else []
+        if process_id:
+            subprocess.run(["taskkill.exe", "/PID", str(process_id), "/T", "/F"],
+                           capture_output=True, timeout=15, check=False)
+        survivors = self.processes(process_id) if process_id else []
+        if survivors:
+            raise RuntimeError("headless cancellation left surviving processes")
+        metadata.update({"state": "cancelled", "cancelled_at": time.time(),
+                         "cancel_before": before, "cancel_after": survivors})
+        atomic_json(self.metadata_path(job), metadata)
+        (root / "state.txt").write_text("cancelled", encoding="utf-8")
+
     def metadata(self, job: str, session: str) -> dict:
         _, metadata = self.require_session(job, session)
         started = float(metadata.get("started_at", metadata.get("created_at", time.time())))
@@ -416,10 +477,16 @@ class Handler(BaseHTTPRequestHandler):
             job, action = parts[2], parts[3]
             session = self.session(query)
             if action == "readiness":
-                self.server.state.readiness(job, session)
+                headless = query.get("mode", [""])[0] == "headless"
+                if headless:
+                    self.server.state.headless_readiness(job, session)
+                else:
+                    self.server.state.readiness(job, session)
                 self.text(
                     HTTPStatus.OK,
-                    f"session_id={session}\ntransport=agent-gui\nagent=ready\ndesktop=ready\ngpu=ready\napplication=ready\n",
+                    f"session_id={session}\ntransport={'cloud-relay' if headless else 'agent-gui'}\n"
+                    "agent=ready\ndesktop=ready\ngpu=ready\ndriver=ready\ncuda=ready\n"
+                    "runtime=ready\ndetector=ready\ncache_hit=true\napplication=ready\n",
                 )
             elif action == "estimate":
                 seconds, cost = self.server.state.estimate(job, session)
@@ -510,11 +577,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.text(HTTPStatus.OK, f"session_id={session}\ntransport=agent-gui\n")
             elif action == "start":
                 session = self.session(query)
-                receipt = self.server.state.start(job, session)
-                self.text(
-                    HTTPStatus.OK,
-                    f"state=running\ntransport=agent-gui\naction_receipt={receipt}\n",
-                )
+                if query.get("mode", [""])[0] == "headless":
+                    self.server.state.start_headless(job, session)
+                    self.text(HTTPStatus.OK, "state=running\ntransport=cloud-relay\n")
+                else:
+                    receipt = self.server.state.start(job, session)
+                    self.text(
+                        HTTPStatus.OK,
+                        f"state=running\ntransport=agent-gui\naction_receipt={receipt}\n",
+                    )
             elif action == "reconnect":
                 session = self.session(query)
                 self.server.state.reconnect(job, session)
@@ -527,7 +598,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.connection.shutdown(socket.SHUT_RDWR)
                 self.connection.close()
             elif action == "cancel":
-                self.server.state.cancel(job, self.session(query))
+                if query.get("mode", [""])[0] == "headless":
+                    self.server.state.cancel_headless(job, self.session(query))
+                else:
+                    self.server.state.cancel(job, self.session(query))
                 self.text(HTTPStatus.OK, "state=cancelled\n")
             else:
                 self.text(HTTPStatus.NOT_FOUND, "not found")

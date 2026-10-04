@@ -10,8 +10,8 @@ MosaicRestore is a local-first AI video mosaic-restoration application for macOS
 - Restore a single video through the native macOS desktop app.
 - Process long videos with deterministic chunking, durable checkpoints, resume, bounded retry, validated assembly, and cancellation.
 - Run locally on Apple Silicon with an external Lada/MPS runtime.
-- Run on a user-funded NVIDIA host through a provider-neutral SSH adapter and an external Lada/CUDA runner.
-- Run through an authenticated Agent Cloud Computer that controls an external GPU desktop without adding an AI-OS-specific provider branch.
+- Run headless Jasna/NVIDIA/TensorRT on a user-funded cloud host.
+- Run Jasna through an authenticated Agent Cloud Computer that performs visible actions on an external GPU desktop.
 - Track progress, validate outputs with `ffprobe`, and preserve resumable state after interruption.
 - Use a native SwiftUI glass interface with accessibility fallbacks for reduced transparency and motion.
 
@@ -30,15 +30,15 @@ The default desktop path uses an external Lada runtime with Apple MPS, the Lada 
 
 ### Cloud NVIDIA
 
-Advanced users can supply a `MOSAIC_CLOUD_CONFIG` profile for a user-controlled NVIDIA host. MosaicRestore uploads the input, checks GPU/runtime readiness, starts and monitors the external runner, supports cancellation and recovery, downloads the result, and validates the output. The bundled adapter is provider-neutral: credentials and SSH keys stay outside the repository, and GPU charges are paid directly by the user to their chosen provider.
+Advanced users can supply a `MOSAIC_CLOUD_CONFIG` profile for a user-controlled NVIDIA host. The formal runtime is pinned Jasna v0.10.0 with Lada YOLO v4 detection, BasicVSR++ restoration and a prebuilt TensorRT cache. MosaicRestore uploads the input, checks readiness, runs Jasna headlessly, monitors it, downloads the result and validates the output. Provider credentials remain outside the repository, and GPU charges are paid directly by the user.
 
 ### Agent Cloud Computer
 
-Advanced users can supply an authenticated external agent configuration for a rented GPU desktop. Mosaic Core owns the provider lifecycle while the external agent performs visible GUI actions, preserves a reconnectable session, reports progress, supports cancellation, and returns a validated result. Provider credentials and rented-machine details remain outside the repository.
+Advanced users can supply an authenticated external agent configuration for a rented Windows GPU desktop. Mosaic Core owns the provider lifecycle while the external agent performs visible GUI actions that launch the same pinned Jasna runtime, preserves a reconnectable session, reports progress, supports cancellation, and returns a validated result.
 
 ## Project status
 
-MosaicRestore **v1.0.0** is complete as a source release. P1–P5 and all three execution chains are genuinely accepted: Local Computer, Cloud Compute, and Agent Cloud Computer. The final quality gate used a real 70-minute video through the existing 15-chunk production path; the output passed full decode, duration, frame-count, timestamp, boundary, and sampled visual-quality checks.
+MosaicRestore **v1.0.0** is published as a source release. Local Computer (Lada/MPS) and its real 70-minute, 15-chunk quality gate are accepted. Earlier RunPod Lada/CUDA P4/P5 runs validate upload, download, relay, session, cancellation and GUI-agent infrastructure only; they do not complete the formal Jasna Cloud Compute or Agent Cloud Computer product gates. Both Jasna paths are offline-ready and await one bounded Windows/T4 E2E window.
 
 This Mac has no Apple Developer ID identity. The repository therefore does not publish an unsigned app as a formal macOS distribution artifact: local ad-hoc installation is verified, while Developer ID signing, notarization, stapling, and Gatekeeper-ready external app distribution remain an external release blocker.
 
@@ -55,10 +55,11 @@ verify/verify_p2_desktop.sh
 verify/verify_p3_long_video.sh
 verify/verify_p4_cloud_execution.sh
 verify/verify_p5_agent_cloud_computer.sh
+verify/verify_jasna_airgpu.sh --offline
 verify/verify_glass_ui.sh
 ```
 
-The P4 script always exercises the provider contract locally. A real NVIDIA run additionally requires a valid `MOSAIC_CLOUD_CONFIG` and a prepared external host; otherwise that external portion reports `SKIP` rather than a false pass.
+The P4/P5 scripts preserve Lada/CUDA infrastructure coverage. They are not formal Jasna cloud product acceptance. The dual-path Jasna gate uses `verify/verify_jasna_airgpu.sh --real --connection <secret.json> --output <new-evidence-directory>` after a separately approved AirGPU start; it never starts or purchases the machine itself.
 
 ## Privacy and cost model
 

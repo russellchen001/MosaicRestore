@@ -1,7 +1,8 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-v1.0.0 RELEASE CLOSURE is COMPLETE for the source release. P1–P5 and all three execution chains are genuinely accepted: Local Computer (Apple Silicon/MPS), Cloud Compute (real RunPod CUDA/SSH lifecycle), and Agent Cloud Computer (real Linux GPU desktop + GUI agent). AI-OS v2.0 retains only host wiring/orchestration and host-level acceptance; no missing MosaicRestore provider lifecycle is deferred to it.
+v1.0.0 is published as a source release, but its cloud product claim is corrected. Local Computer (Lada/MPS) is accepted. The RunPod Lada/CUDA P4/P5 results prove infrastructure behavior only; they do not accept the formal Cloud Compute or Agent Cloud Computer products.
+The formal cloud runtime is Jasna/NVIDIA/TensorRT: Cloud Compute runs Jasna headlessly, while Agent Cloud Computer performs visible GUI actions that launch the same pinned Jasna runtime. Both are offline-ready for one bounded AirGPU Windows/T4 window; their real Jasna E2E status is `NOT RUN` pending explicit budget approval. AI-OS is unchanged and v2.0 remains host wiring only.
 P5 acceptance combines the preserved authoritative main-chain window on RTX 4090 `459c1x9gvzwi9g` with a cancellation-only window on RTX 4090 `nl5lb1f156bzzm`. The main chain was NOT rerun: visible GUI launch, CUDA/Lada, real desktop/agent transport disconnect/reconnect, stable Lada PID/start time, progress, download, SHA-256 and ffprobe remain authoritative. The bounded-upload repair enabled genuine GUI cancellation with verified task, Lada and terminal exit.
 Final P1–P5 serial regressions, 12 Linux-agent behavior tests, Rust fmt, Clippy `-D warnings`, Swift Release and Desktop glass acceptance pass. Fixture regressions remain explicitly distinct from the real external evidence.
 All P5 RunPod instances are stopped; the final instance shows compute and container storage Not running, $0.00/hour. Latest cancellation-window account balance is $7.82→$7.75 (rounded account-wide $0.07 debit, not an isolated invoice); no top-up or persistent volume was created. Apple signing/notarization remains an external distribution blocker, not missing P5 lifecycle behavior.
@@ -18,7 +19,8 @@ Both share one Mosaic Core.
 - Detector, tracker, restorer and compute backend remain replaceable.
 - Temporal tracking, scene boundaries and overlap belong in Core.
 - Local Apple Silicon baseline: Lada + MPS.
-- NVIDIA/cloud baseline: external runner + Lada YOLO v4 detector + BasicVSR++ on CUDA; Jasna remains an optional compatible runtime, not a required dependency.
+- NVIDIA/cloud product baseline: Jasna v0.10.0 + Lada YOLO v4 detector + BasicVSR++ + TensorRT FP16 on Windows/T4.
+- Lada/CUDA cloud execution remains an engineering/infrastructure verifier, not a formal cloud product backend.
 - Local and NVIDIA backends share one Core contract but may use different inference implementations.
 - Secondary restoration is deferred beyond P1.
 - JavPlayer remains a commercial product/quality reference, not a P0 dependency.
@@ -28,8 +30,8 @@ Both share one Mosaic Core.
 
 ## Execution Providers
 1. Local Computer.
-2. Agent Cloud Computer — AI operates software on a user-rented GPU desktop.
-3. Cloud Compute — user-owned BYOC/BYOK GPU provider.
+2. Cloud Compute — headless Jasna/NVIDIA/TensorRT on a user-funded GPU host.
+3. Agent Cloud Computer — GUI agent operates Jasna/NVIDIA on a user-rented GPU desktop.
 Cloud compute costs are paid directly by the user.
 
 ## P0 Results
@@ -122,6 +124,16 @@ Provider-neutral user-funded cloud execution:
 configuration validation → upload → GPU/driver/CUDA/external-runtime/Lada-detector readiness → estimate → remote start/progress → cancellation/recovery → download → existing P3 output validation.
 Desktop keeps Local Lada/MPS as the simple default and exposes the real Cloud/NVIDIA path only under Advanced.
 
+### Jasna cloud product correction — 2026-10-05
+- `adapters/http_jasna_cloud_adapter.py` maps the unchanged Core cloud contract to the existing authenticated outbound HTTPS relay; it never provisions or starts a cloud machine.
+- The shared Windows service has two distinct launch modes: headless `jasna.exe` for Cloud Compute and existing visible PowerShell/UIA launch for Agent Cloud Computer. Upload, download, session, relay and evidence transport are reused rather than rebuilt.
+- Runtime is pinned by `adapters/jasna-airgpu-v0.10.0.json`: Jasna v0.10.0 / commit `93d0584`, Tesla T4, `lada-yolo-v4`, BasicVSR++ v1.2 weights, TensorRT FP16 cache, H.264 CQ 18, max clip 60 and temporal overlap 8. Paid-window engine compilation is forbidden; readiness requires the existing T4 `.engine` cache.
+- `adapters/deploy_windows_jasna.cmd` is the single Windows deployment entry. `verify/verify_jasna_airgpu.sh --real ...` runs headless Cloud Compute first and GUI Agent Cloud Computer second, then retains output hashes, ffprobe JSON, logs and evidence ZIPs. The script does not start, stop, purchase or switch cloud resources.
+- Offline acceptance passes only tooling/fixture behavior and is not real NVIDIA evidence. Formal Cloud Compute and Agent Cloud Computer remain `NOT RUN` until both complete in one user-approved AirGPU window.
+- Final offline bundle: `mosaic-jasna-airgpu-v0.10.0-v3.zip`, 52,588,898 bytes, SHA-256 `9578bdeb232683e1d20b2cc74e3130d5217c5b7ba211dbfe3bfd2c4d83f42030`; it deterministically locates the preserved Jasna runtime, then pins version/models/cache/command. Bundle manifest/dependencies and 11 focused behavior checks pass. No paid instance was started.
+- Live cost audit on 2026-10-05: AirGPU machine is `Off`, Tesla T4/Windows Server 2025, displayed rate US$2.10/hour and current credit US$1.01. At the recorded 10% VAT rate, conservative cost is US$2.31/hour and available credit covers about 26.2 billed minutes. Plan: complete useful work and request Stop by minute 12, allow up to 10 minutes for Off, hard billed envelope 22 minutes ≈ US$0.847; minimum extra funding is US$0.00 if these stop gates are honored.
+- RunPod audit found all compute stopped. The sole legacy pod still charging US$0.01/hour for container storage (`amateur_fuchsia_puma`) was terminated under the user's stop-all-paid-resources instruction; its non-network volume/data is irrecoverable. Remaining listed pods display US$0.00/hour.
+
 ## P4 Technical Decision
 Cloud execution uses a versioned external adapter command contract owned by Mosaic Core; Core does not contain AirGPU, RunPod, or another vendor API.
 The bundled generic SSH adapter can target AirGPU, RunPod, or a user-owned NVIDIA host through a named profile. Provider credentials and SSH keys remain outside the app and repository, and GPU charges are paid directly by the user.
@@ -130,7 +142,7 @@ The RunPod runtime is pinned to official Lada commit `20cb34a20a83c72c87a991d2c9
 Jasna v0.10.0 Linux portable is not the P4 acceptance dependency: on this RunPod it loaded its TensorRT sub-engines and detector but remained at `Processing video: 0%` with 0% GPU use and no output for both the smoke fixture and a real 60-second video. Its generated TensorRT engine stays external and available for future compatibility work; the accepted runner uses the stable Lada CUDA path and cached model weights.
 P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jobs inherit bounded retry, crash resume, batch ordering, final ffprobe validation, and cleanup semantics.
 
-## P4 Verification
+## P4 Verification — infrastructure history
 - `verify/verify_p4_cloud_execution.sh` is the P4 acceptance entry point.
 - Executable fixture coverage passes for cloud configuration validation, upload/download, complete NVIDIA runtime readiness, exact Lada/CUDA runner arguments, progress, remote cancellation, transient connection recovery, runtime cache hit, cost/time estimate, and output integrity.
 - Rust Core has 14 passing behavior tests, including cloud success, readiness rejection, cancellation, and transient status recovery.
@@ -138,11 +150,11 @@ P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jo
 - `MOSAIC_CLOUD_CONFIG` real mode passes on an RTX 4090: upload, readiness, estimate, start, status, cached runtime reuse, readable MP4 download, and ffprobe validation all succeed.
 - A separate real 60-second baseline run was cancelled after remote start; Core returned `Cancelled`, the remote job state became `cancelled`, no local output was created, and no Lada/Jasna process remained.
 - P1, P2, P3, and P4 acceptance scripts pass together. P2's local-machine NVIDIA probe remains an expected `SKIP` on Apple Silicon; P4 is the authoritative real cloud NVIDIA acceptance.
-- P4 has no remaining implementation or acceptance blocker and may be formally closed.
+- These Lada/CUDA results remain valid infrastructure validation, but no longer close the formal Jasna Cloud Compute product gate.
 
-## v1.0.0 Release Closure
+## v1.0.0 Release Closure — corrected status
 - Release-candidate baseline started from `416a87539a3fb6e90c57c5ffb60c93a909eb286e` with a clean worktree.
-- P1 Core, P1 Provider, P1 MVP, P2 Desktop, P3 Long Video, P4 Cloud Execution, and P5 Agent Cloud Computer local acceptance all pass. P4/P5 external GPU evidence is preserved as authoritative and is not rerun because RunPod is intentionally stopped.
+- P1–P3, Desktop and the Local Computer quality gate remain accepted. P4/P5 Lada/CUDA evidence is preserved as authoritative infrastructure evidence only; it must not be used to claim the formal Jasna cloud products are complete.
 - Rust formatting and Clippy with warnings denied pass; the Swift release build passes.
 - Desktop now renders an unavailable cloud price as `Cost unknown` instead of a fake dollar amount, clears stale estimates before a new selection/run, and rejects a whitespace-only cloud configuration before submission.
 - `desktop/build/MosaicRestore.app` is an arm64 release app with a valid strict ad-hoc signature. The installed `/Applications/MosaicRestore.app` passes signature verification and launches to its initial usable window.
@@ -167,7 +179,7 @@ The reference agent does not embed Lada or another AGPL runtime. Its application
 Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocket/RFB framebuffer, VNC socket banner, valid DISPLAY/Xauthority, and running Xfce session/window manager before the agent starts. The same live probe backs Docker health and the agent health contract. Connection files canonically use `vnc_password`; the runner normalizes the earlier `password` field and rejects missing or conflicting credentials before any connection. The existing TigerVNC/noVNC/GUI-agent architecture is retained.
 
 ## P5 Verification
-### Final real acceptance and closure — 2026-10-04
+### Lada/CUDA infrastructure acceptance — 2026-10-04
 - Fixed public image: `ghcr.io/russellchen001/mosaicrestore-p5-linux-desktop:20261004-rfb1`, OCI index `sha256:efc10d5eea8599e5297a06aebf9b6f36e899db7fa285e5056b93a8e2c088ced6`; amd64 child `sha256:a0635dce42adeca070e0082999635898a40ecf6acd270910f45ec2b63320dc93`. Actual anonymous pull was verified during the offline repair; both final real windows use this unchanged runtime.
 - Authoritative main chain: `outputs/p5-runpod-long/run` in the current Codex task. Real Xfce/noVNC/RFB + PyAutoGUI launches Lada `cuda:0`; actual RFB and agent transport disconnect/reconnect preserve session/window and Lada PID `1568`, StartTicks `136145308`, with continuous progress. Downloaded H.264 640×360/24fps output is readable, 1800 seconds, 157462478 bytes, SHA-256 `7423b41c04c6804630c00ab72058c5a521be2dd590dfc13bc6bcb884f55a439c`. This synthetic test input proves the execution lifecycle, not a visual-quality review on real mosaics.
 - Remaining cancellation ran ONLY after validating the preserved primary report, output hash and reconnect identity evidence. `verify/run_p5_linux.py --cancel-only --primary-evidence ...` uses the repaired 60-second input-upload timeout; control operations retain 10-second bounds. No P4 SSH runner started restoration.
@@ -204,7 +216,7 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 - Core has 19 passing behavior tests. P5 fixture behavior passes configuration, session open, readiness, upload, GUI launch evidence, status/progress, same-session reconnect, cancellation, download, structured error mapping, metadata, cleanup, and explicit direct-SSH bypass rejection.
 - The Desktop contract and full Swift release app build pass with three provider choices; Local remains the default.
 - P1–P5 regression passes. P4 real NVIDIA is not rerun because RunPod is stopped; its prior RTX 4090 acceptance remains authoritative.
-- Real Agent Cloud Computer E2E is accepted by the final Linux/RunPod evidence above. Credentials and machine configuration remain external; fixture acceptance alone is not used to claim completion. Paperspace/AirGPU historical plans below were superseded by the accepted Linux desktop route.
+- This Linux/RunPod result accepts GUI-agent infrastructure only. It is not formal Agent Cloud Computer product acceptance because the launched runtime was Lada/CUDA rather than Jasna/NVIDIA. The formal Windows/T4 Jasna GUI E2E remains `NOT RUN`.
 
 ## P5 Real E2E Plan — Existing AirGPU Credit
 - Initial console view on 2026-10-04 showed existing `airgpu-35d4bba7ac`, Sydney, Tesla T4, Windows Server 2025, 100 GB SSD, Off, credit US$10.00, displayed rate US$2.10/hour. This balance proved stale: a full refresh during the authorized startup showed US$1.27. Account records separately show a 10% VAT rate. Do not use the original US$10.00 view or untaxed 60-minute estimate to authorize another run.

@@ -23,7 +23,8 @@ def main():
         raise RuntimeError("output already exists; choose a new path")
     with tempfile.TemporaryDirectory(prefix="mosaic-p5-bundle-") as scratch:
         bundle = Path(scratch)
-        for name in ("windows_gui_agent.py", "deploy_windows_agent.ps1", "deploy_windows_agent.cmd"):
+        for name in ("windows_gui_agent.py", "deploy_windows_agent.ps1", "deploy_windows_agent.cmd",
+                     "deploy_windows_jasna.cmd", "jasna-airgpu-v0.10.0.json"):
             shutil.copy2(ROOT / "adapters" / name, bundle / name)
         binary = bundle / "cloudflared.exe"
         url = f"https://github.com/cloudflare/cloudflared/releases/download/{VERSION}/cloudflared-windows-amd64.exe"

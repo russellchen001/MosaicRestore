@@ -1,0 +1,15 @@
+{
+  "jasna_version": "0.10.0",
+  "upstream_tag": "v0.10.0",
+  "upstream_commit": "93d0584",
+  "platform": "Windows NVIDIA",
+  "gpu": "Tesla T4",
+  "application": "C:\\Jasna\\jasna.exe",
+  "detector": "lada-yolo-v4",
+  "detector_weights": "model_weights\\lada_mosaic_detection_model_v4_fast.pt",
+  "restorer": "basicvsrpp",
+  "restorer_weights": "model_weights\\lada_mosaic_restoration_model_generic_v1.2.pth",
+  "backend": "TensorRT FP16",
+  "cache": "C:\\Jasna\\model_weights\\*.engine",
+  "command": "jasna.exe --input {input} --output {output} --device cuda:0 --fp16 --detection-model lada-yolo-v4 --restoration-model-name basicvsrpp --restoration-model-path C:\\Jasna\\model_weights\\lada_mosaic_restoration_model_generic_v1.2.pth --compile-basicvsrpp --max-clip-size 60 --temporal-overlap 8 --codec h264 --cq 18 --log-level info"
+}
