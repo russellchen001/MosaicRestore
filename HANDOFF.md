@@ -141,12 +141,14 @@ P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jo
 - Rust formatting and Clippy with warnings denied pass; the Swift release build passes.
 - Desktop now renders an unavailable cloud price as `Cost unknown` instead of a fake dollar amount, clears stale estimates before a new selection/run, and rejects a whitespace-only cloud configuration before submission.
 - `desktop/build/MosaicRestore.app` is an arm64 release app with a valid strict ad-hoc signature. The installed `/Applications/MosaicRestore.app` passes signature verification and launches to its initial usable window.
+- Desktop uses one native SwiftUI glass visual system: adaptive Material cards and controls, a single cool accent, consistent rounded geometry, restrained hover/pressed feedback, and solid-surface fallbacks for reduced transparency. The input, Local/Cloud selection, progress, errors, Advanced settings, and actions share these reusable components without changing Core behavior.
+- `desktop/build_app.sh` resolves SwiftPM's active release binary directory instead of copying from the legacy `.build/release` path, preventing a stale Desktop executable from being packaged under newer Xcode output layouts.
 - This Mac has no Apple Developer signing identity. Developer ID signing, notarization, and Gatekeeper-ready external distribution remain a release blocker outside the repository; local ad-hoc installation is verified.
 
 ## AI-OS Integration Boundary
 - AI-OS must call the same Mosaic Core library or CLI contract used by Desktop: `RestoreRequest`, provider-neutral `RestorationProvider`, `ProgressUpdate`, `CancellationToken`, `RestoreErrorKind`, and the P3 production workflow.
 - AI-OS must supply external runtime or cloud configuration at the adapter boundary. Vendor credentials, SSH keys, RunPod APIs, Lada source, and Jasna source must not enter Core or AI-OS persistence.
-- No AI-OS-specific adapter or vendor branch is added in this closure. The contract remains aligned; AI-OS host wiring and its end-to-end acceptance are owned outside this repository and remain separately unverified.
+- No AI-OS-specific adapter or vendor branch is added in this closure. Contract and adapter-level fixture coverage are the complete acceptance boundary for this repository; real AI-OS host wiring and its end-to-end acceptance are explicitly deferred to AI-OS v2.0.
 
 ## Final Long-Video Cloud Acceptance Checklist
 1. Start the retained RunPod only for the acceptance window; confirm the saved SSH profile, `nvidia-smi`, remote runner, pinned Lada commit, weights, and cache without changing Core.
@@ -159,4 +161,4 @@ P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jo
 ## Remaining Release Blockers
 - Final real long-video cloud quality acceptance has not yet been run; it requires intentionally restarting RunPod.
 - External distribution requires a valid Apple Developer signing identity and notarization. The current app is verified only for local ad-hoc installation.
-- AI-OS host integration end-to-end is not present in this repository and must be accepted separately against the contract above.
+- AI-OS host integration is deferred to AI-OS v2.0 and is not a MosaicRestore release-candidate blocker; it must be accepted in the AI-OS repository against the contract above.
