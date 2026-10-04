@@ -89,7 +89,10 @@ case "$ACTION" in
   estimate)
     duration=$(remote "ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 $(quote "$REMOTE_JOB/input.mp4")") || exit 4
     estimated=$(awk -v duration="$duration" -v factor="$REALTIME_FACTOR" 'BEGIN { printf "%.1f", duration * factor }')
-    cost=$(awk -v seconds="$estimated" -v hourly="$HOURLY_COST_USD" 'BEGIN { printf "%.4f", seconds * hourly / 3600 }')
+    cost=$(awk -v seconds="$estimated" -v hourly="$HOURLY_COST_USD" 'BEGIN {
+      if (hourly ~ /^[0-9]+([.][0-9]+)?$/) printf "%.4f", seconds * hourly / 3600;
+      else printf "unknown";
+    }')
     printf 'estimated_seconds=%s\nestimated_cost_usd=%s\n' "$estimated" "$cost"
     ;;
   start)
