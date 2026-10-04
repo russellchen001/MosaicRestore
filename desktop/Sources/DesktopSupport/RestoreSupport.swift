@@ -107,6 +107,9 @@ public enum ProgressLineParser {
         }
         let values = Dictionary(uniqueKeysWithValues: pairs)
         guard let seconds = values["estimated_seconds"], let cost = values["estimated_cost_usd"] else { return nil }
+        if cost == "unknown" {
+            return "Estimated \(seconds)s · Cost unknown (paid to your cloud provider)"
+        }
         return "Estimated \(seconds)s · $\(cost) USD paid to your cloud provider"
     }
 }

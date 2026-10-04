@@ -22,7 +22,8 @@ final class RestoreViewModel: ObservableObject {
     private var outputBuffer = ""
 
     var canRestore: Bool {
-        !inputURLs.isEmpty && !isRunning && (provider == .local || !cloudConfig.isEmpty)
+        !inputURLs.isEmpty && !isRunning &&
+            (provider == .local || !cloudConfig.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
     func chooseInput() {
@@ -37,6 +38,7 @@ final class RestoreViewModel: ObservableObject {
         }
         status = inputURLs.count == 1 ? "Ready to restore" : "Ready to restore \(inputURLs.count) videos"
         progress = 0
+        cloudEstimate = nil
     }
 
     func restore() {
@@ -45,6 +47,8 @@ final class RestoreViewModel: ObservableObject {
             errorMessage = "The output file already exists. Move or rename it, then try again."
             return
         }
+        errorMessage = nil
+        cloudEstimate = nil
 
         do {
             let coreURL = try locateCoreExecutable()

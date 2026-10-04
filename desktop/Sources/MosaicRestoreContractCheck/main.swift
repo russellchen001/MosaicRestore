@@ -58,6 +58,9 @@ check(Array(cloud.arguments.suffix(2)) == ["--cloud-config", "/tmp/cloud.conf"],
 check(ProgressLineParser.cloudEstimate(from: "CLOUD estimated_seconds=120 estimated_cost_usd=0.42") ==
       "Estimated 120s · $0.42 USD paid to your cloud provider",
       "Desktop shows cloud time and user-paid cost estimate")
+check(ProgressLineParser.cloudEstimate(from: "CLOUD estimated_seconds=120 estimated_cost_usd=unknown") ==
+      "Estimated 120s · Cost unknown (paid to your cloud provider)",
+      "Desktop shows unknown cloud price without inventing a dollar amount")
 check(ProgressLineParser.percent(from: "15% Running restoring") == 15,
       "Desktop reads Core progress")
 check(ProgressLineParser.friendlyStatus(from: "100% Succeeded completed") == "Complete",

@@ -1,8 +1,9 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-P4 — Cloud Execution complete on 2026-10-04.
+Release Candidate closure on 2026-10-04. P1–P4 are complete.
 The provider-neutral SSH lifecycle and a real RunPod RTX 4090 Lada/CUDA end-to-end run both pass, including real cancellation and readable output download.
+The final long-video cloud run is prepared but intentionally deferred; RunPod remains stopped.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -77,7 +78,7 @@ Provider, detector, restorer and backend details are hidden under Advanced.
 ## P2 Technical Decision
 Desktop is a dependency-free SwiftUI app packaged as `MosaicRestore.app`.
 It invokes the existing Rust Mosaic Core executable and consumes the P1 progress/cancellation contract; restoration logic is not duplicated in Swift.
-Local Lada on Apple MPS is the default. Cloud/NVIDIA remains an Advanced provider entry that accepts an external Jasna runner and does not block local Desktop use.
+Local Lada on Apple MPS is the default. Cloud/NVIDIA remains an Advanced provider entry that accepts an external provider-neutral cloud configuration and does not block local Desktop use.
 The external Lada and Jasna runtimes remain outside the app source; no AGPL upstream source is copied into Desktop or Core.
 
 ## P2 Verification
@@ -133,3 +134,29 @@ P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jo
 - A separate real 60-second baseline run was cancelled after remote start; Core returned `Cancelled`, the remote job state became `cancelled`, no local output was created, and no Lada/Jasna process remained.
 - P1, P2, P3, and P4 acceptance scripts pass together. P2's local-machine NVIDIA probe remains an expected `SKIP` on Apple Silicon; P4 is the authoritative real cloud NVIDIA acceptance.
 - P4 has no remaining implementation or acceptance blocker and may be formally closed.
+
+## Release Candidate Closure
+- Release-candidate baseline started from `416a87539a3fb6e90c57c5ffb60c93a909eb286e` with a clean worktree.
+- P1 Core, P1 Provider, P1 MVP, P2 Desktop, P3 Long Video, and P4 Cloud Execution local acceptance all pass. P4 real NVIDIA is not rerun because the completed real RTX 4090 acceptance remains authoritative and RunPod is intentionally stopped.
+- Rust formatting and Clippy with warnings denied pass; the Swift release build passes.
+- Desktop now renders an unavailable cloud price as `Cost unknown` instead of a fake dollar amount, clears stale estimates before a new selection/run, and rejects a whitespace-only cloud configuration before submission.
+- `desktop/build/MosaicRestore.app` is an arm64 release app with a valid strict ad-hoc signature. The installed `/Applications/MosaicRestore.app` passes signature verification and launches to its initial usable window.
+- This Mac has no Apple Developer signing identity. Developer ID signing, notarization, and Gatekeeper-ready external distribution remain a release blocker outside the repository; local ad-hoc installation is verified.
+
+## AI-OS Integration Boundary
+- AI-OS must call the same Mosaic Core library or CLI contract used by Desktop: `RestoreRequest`, provider-neutral `RestorationProvider`, `ProgressUpdate`, `CancellationToken`, `RestoreErrorKind`, and the P3 production workflow.
+- AI-OS must supply external runtime or cloud configuration at the adapter boundary. Vendor credentials, SSH keys, RunPod APIs, Lada source, and Jasna source must not enter Core or AI-OS persistence.
+- No AI-OS-specific adapter or vendor branch is added in this closure. The contract remains aligned; AI-OS host wiring and its end-to-end acceptance are owned outside this repository and remain separately unverified.
+
+## Final Long-Video Cloud Acceptance Checklist
+1. Start the retained RunPod only for the acceptance window; confirm the saved SSH profile, `nvidia-smi`, remote runner, pinned Lada commit, weights, and cache without changing Core.
+2. Record input path, duration, codec, resolution, size, and SHA-256 for the selected real long video; keep media and credentials outside git.
+3. Run the existing production path with the saved cloud configuration. Confirm configuration/readiness, upload, honest time/cost estimate (numeric or `unknown`), chunk progress, cache reuse, download, and terminal success.
+4. If the run is interrupted, resume from the durable checkpoint and confirm completed chunks are not repeated. Do not manufacture a retry during the final uninterrupted quality run.
+5. Validate the restored output with `ffprobe`; compare duration to input, record codec/resolution/size/SHA-256, and perform the final visual mosaic-restoration review.
+6. Confirm successful local workspace cleanup, no remote Lada/Jasna process remains, retain only the intended remote cache, then stop RunPod. Do not terminate it until cache retention is no longer needed.
+
+## Remaining Release Blockers
+- Final real long-video cloud quality acceptance has not yet been run; it requires intentionally restarting RunPod.
+- External distribution requires a valid Apple Developer signing identity and notarization. The current app is verified only for local ad-hoc installation.
+- AI-OS host integration end-to-end is not present in this repository and must be accepted separately against the contract above.
