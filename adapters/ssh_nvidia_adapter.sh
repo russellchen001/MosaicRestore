@@ -9,7 +9,7 @@ INPUT=""
 OUTPUT=""
 DETECTOR="lada-yolo-v4"
 RESTORER="basicvsrpp"
-BACKEND="tensorrt"
+BACKEND="cuda"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -84,7 +84,7 @@ case "$ACTION" in
     scp "${SCP_ARGS[@]}" "$INPUT" "$TARGET:$REMOTE_JOB/input.mp4" >/dev/null
     ;;
   readiness)
-    remote "$(quote "$REMOTE_RUNNER") preflight --detector lada-yolo-v4 --restorer basicvsrpp --backend tensorrt --engine-cache $(quote "$REMOTE_ROOT/engine-cache")"
+    remote "$(quote "$REMOTE_RUNNER") preflight --detector lada-yolo-v4 --restorer basicvsrpp --backend $(quote "$BACKEND") --engine-cache $(quote "$REMOTE_ROOT/engine-cache")"
     ;;
   estimate)
     duration=$(remote "ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 $(quote "$REMOTE_JOB/input.mp4")") || exit 4

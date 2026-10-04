@@ -46,10 +46,10 @@ printf '%s\n' "$action" >> "$root/events"
 case "$action" in
   validate) exit 0 ;;
   upload) cp "$input" "$root/input.mp4" ;;
-  readiness) printf 'gpu=ready\ndriver=ready\ncuda=ready\ntensorrt=ready\njasna=ready\ndetector=ready\ncache_hit=true\n' ;;
+  readiness) printf 'gpu=ready\ndriver=ready\ncuda=ready\nruntime=ready\ndetector=ready\ncache_hit=true\n' ;;
   estimate) printf 'estimated_seconds=2.0\nestimated_cost_usd=0.01\n' ;;
   start)
-    [ "$detector" = lada-yolo-v4 ] && [ "$restorer" = basicvsrpp ] && [ "$backend" = tensorrt ] || exit 7
+    [ "$detector" = lada-yolo-v4 ] && [ "$restorer" = basicvsrpp ] && [ "$backend" = cuda ] || exit 7
     printf running > "$root/state"
     ;;
   status)
@@ -86,8 +86,8 @@ else
   fail "Cloud execution lifecycle"
 fi
 
-if cmp -s "$ROOT/input.mp4" "$ROOT/output.mp4" && grep -q 'tensorrt-cache-hit' "$ROOT/run.log" && grep -q 'CLOUD estimated_seconds=2.0 estimated_cost_usd=0.01' "$ROOT/run.log"; then
-  pass "TensorRT cache hit, cost estimate and result integrity"
+if cmp -s "$ROOT/input.mp4" "$ROOT/output.mp4" && grep -q 'runtime-cache-hit' "$ROOT/run.log" && grep -q 'CLOUD estimated_seconds=2.0 estimated_cost_usd=0.01' "$ROOT/run.log"; then
+  pass "Runtime cache hit, cost estimate and result integrity"
 else
   fail "Cache, estimate or result integrity"
 fi
@@ -116,9 +116,9 @@ if [ -n "${MOSAIC_CLOUD_CONFIG:-}" ] && [ -f "${MOSAIC_CLOUD_CONFIG:-}" ] && [ -
   REAL_OUTPUT="benchmark/results/p4_cloud_restored.mp4"
   rm -f "$REAL_OUTPUT"
   if "$CORE" --provider cloud-nvidia --cloud-config "$MOSAIC_CLOUD_CONFIG" --input benchmark/samples/p1_lada_smoke.mp4 --output "$REAL_OUTPUT" > "$ROOT/real.log" 2>&1 && ffprobe -v error "$REAL_OUTPUT" >/dev/null 2>&1; then
-    pass "Real NVIDIA Jasna and Lada detector end-to-end"
+    pass "Real NVIDIA Lada CUDA end-to-end"
   else
-    fail "Real NVIDIA Jasna and Lada detector end-to-end"
+    fail "Real NVIDIA Lada CUDA end-to-end"
   fi
 else
   echo "SKIP real NVIDIA E2E — MOSAIC_CLOUD_CONFIG is not available"

@@ -12,7 +12,7 @@ use std::time::{Duration, UNIX_EPOCH};
 
 const DETECTOR: &str = "lada-yolo-v4";
 const RESTORER: &str = "basicvsrpp";
-const BACKEND: &str = "tensorrt";
+const BACKEND: &str = "cuda";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloudConfig {
@@ -181,7 +181,7 @@ impl RestorationProvider for CloudNvidiaProvider {
 
         Self::report(control, 15, "gpu-runtime-readiness");
         let readiness = parse_values(&self.checked("readiness", &[("--job", job)])?);
-        for key in ["gpu", "driver", "cuda", "tensorrt", "jasna", "detector"] {
+        for key in ["gpu", "driver", "cuda", "runtime", "detector"] {
             if readiness.get(key).map(String::as_str) != Some("ready") {
                 return Err(RestoreError::new(
                     RestoreErrorKind::ProviderUnavailable,
@@ -193,9 +193,9 @@ impl RestorationProvider for CloudNvidiaProvider {
             control,
             18,
             if readiness.get("cache_hit").map(String::as_str) == Some("true") {
-                "tensorrt-cache-hit"
+                "runtime-cache-hit"
             } else {
-                "tensorrt-cache-miss"
+                "runtime-cache-miss"
             },
         );
 
@@ -404,7 +404,7 @@ root="$(dirname "$0")"
 case "$action" in
   validate) exit 0 ;;
   upload) cp "$input" "$root/uploaded" ;;
-  readiness) printf 'gpu=ready\ndriver=ready\ncuda=ready\ntensorrt=ready\njasna=ready\ndetector=ready\ncache_hit=true\n' ;;
+  readiness) printf 'gpu=ready\ndriver=ready\ncuda=ready\nruntime=ready\ndetector=ready\ncache_hit=true\n' ;;
   estimate) printf 'estimated_seconds=12\nestimated_cost_usd=0.25\n' ;;
   start) printf running > "$root/state" ;;
   status) printf 'state=succeeded\nprogress=100\n' ;;
@@ -437,7 +437,7 @@ esac
         assert!(
             stages
                 .iter()
-                .any(|update| update.stage == "tensorrt-cache-hit")
+                .any(|update| update.stage == "runtime-cache-hit")
         );
         assert!(
             stages

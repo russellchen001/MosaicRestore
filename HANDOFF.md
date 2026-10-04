@@ -1,8 +1,8 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-P4 — Cloud Execution implementation and local automated acceptance complete on 2026-10-03.
-Final P4 completion is blocked only by one real NVIDIA/Jasna end-to-end run: this Mac currently has no `MOSAIC_CLOUD_CONFIG`, cloud host profile, or available NVIDIA machine connection.
+P4 — Cloud Execution complete on 2026-10-04.
+The provider-neutral SSH lifecycle and a real RunPod RTX 4090 Lada/CUDA end-to-end run both pass, including real cancellation and readable output download.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -15,7 +15,7 @@ Both share one Mosaic Core.
 - Detector, tracker, restorer and compute backend remain replaceable.
 - Temporal tracking, scene boundaries and overlap belong in Core.
 - Local Apple Silicon baseline: Lada + MPS.
-- NVIDIA/cloud baseline: Jasna pipeline + Lada YOLO v4 detector + BasicVSR++ + TensorRT.
+- NVIDIA/cloud baseline: external runner + Lada YOLO v4 detector + BasicVSR++ on CUDA; Jasna remains an optional compatible runtime, not a required dependency.
 - Local and NVIDIA backends share one Core contract but may use different inference implementations.
 - Secondary restoration is deferred beyond P1.
 - JavPlayer remains a commercial product/quality reference, not a P0 dependency.
@@ -113,18 +113,23 @@ No AGPL upstream source is copied into Core or Desktop.
 
 ## P4 Scope
 Provider-neutral user-funded cloud execution:
-configuration validation → upload → GPU/driver/CUDA/TensorRT/Jasna/Lada-detector readiness → estimate → remote start/progress → cancellation/recovery → download → existing P3 output validation.
+configuration validation → upload → GPU/driver/CUDA/external-runtime/Lada-detector readiness → estimate → remote start/progress → cancellation/recovery → download → existing P3 output validation.
 Desktop keeps Local Lada/MPS as the simple default and exposes the real Cloud/NVIDIA path only under Advanced.
 
 ## P4 Technical Decision
 Cloud execution uses a versioned external adapter command contract owned by Mosaic Core; Core does not contain AirGPU, RunPod, or another vendor API.
 The bundled generic SSH adapter can target AirGPU, RunPod, or a user-owned NVIDIA host through a named profile. Provider credentials and SSH keys remain outside the app and repository, and GPU charges are paid directly by the user.
-The remote runner remains external and must provide Jasna pipeline execution with Lada YOLO v4 detection, BasicVSR++ restoration, TensorRT backend, persistent engine-cache reuse, job status, and cancellation. No Jasna or Lada AGPL upstream source is copied into Core or Desktop.
+The remote runner remains external and must provide Lada YOLO v4 detection, BasicVSR++ restoration, a CUDA backend, persistent runtime-cache reuse, job status, and cancellation. `adapters/linux_nvidia_runner.sh` is the bundled runner contract implementation; the official AGPL Lada source and weights are deployed only on the remote host and are not copied into Core or Desktop.
+The RunPod runtime is pinned to official Lada commit `20cb34a20a83c72c87a991d2c949032c70085b16`, PyTorch 2.8/CUDA 12.8, device `cuda:0`, v4-fast detector weights, and BasicVSR++ v1.2 restoration weights.
+Jasna v0.10.0 Linux portable is not the P4 acceptance dependency: on this RunPod it loaded its TensorRT sub-engines and detector but remained at `Processing video: 0%` with 0% GPU use and no output for both the smoke fixture and a real 60-second video. Its generated TensorRT engine stays external and available for future compatibility work; the accepted runner uses the stable Lada CUDA path and cached model weights.
 P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jobs inherit bounded retry, crash resume, batch ordering, final ffprobe validation, and cleanup semantics.
 
 ## P4 Verification
 - `verify/verify_p4_cloud_execution.sh` is the P4 acceptance entry point.
-- Executable fixture coverage passes for cloud configuration validation, upload/download, complete NVIDIA runtime readiness, exact Jasna/Lada/TensorRT runner arguments, progress, remote cancellation, transient connection recovery, TensorRT cache hit, cost/time estimate, and output integrity.
+- Executable fixture coverage passes for cloud configuration validation, upload/download, complete NVIDIA runtime readiness, exact Lada/CUDA runner arguments, progress, remote cancellation, transient connection recovery, runtime cache hit, cost/time estimate, and output integrity.
 - Rust Core has 14 passing behavior tests, including cloud success, readiness rejection, cancellation, and transient status recovery.
 - Desktop contract compiles and passes with the Xcode beta toolchain; the Advanced Cloud/NVIDIA path submits `cloud-nvidia` configuration and displays progress plus user-paid cost/time estimates.
-- Real NVIDIA/Jasna/Lada detector end-to-end is `SKIP` until the user supplies one available machine through `MOSAIC_CLOUD_CONFIG`. This is the only remaining P4 completion blocker.
+- `MOSAIC_CLOUD_CONFIG` real mode passes on an RTX 4090: upload, readiness, estimate, start, status, cached runtime reuse, readable MP4 download, and ffprobe validation all succeed.
+- A separate real 60-second baseline run was cancelled after remote start; Core returned `Cancelled`, the remote job state became `cancelled`, no local output was created, and no Lada/Jasna process remained.
+- P1, P2, P3, and P4 acceptance scripts pass together. P2's local-machine NVIDIA probe remains an expected `SKIP` on Apple Silicon; P4 is the authoritative real cloud NVIDIA acceptance.
+- P4 has no remaining implementation or acceptance blocker and may be formally closed.
