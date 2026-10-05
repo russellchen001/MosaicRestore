@@ -62,6 +62,22 @@ def main(args):
     run([str(ROOT / "adapters/http_jasna_cloud_adapter.py"), "evidence", "--profile", "jasna",
          "--job", session_files[0].stem, "--output", str(args.output / "cloud-compute-evidence.zip")],
         env=env, timeout=30, log=args.output / "cloud-evidence.log")
+    # Cloud Compute is complete at this point and it cost real money to get here.
+    # Writing its result down NOW means a later Agent Cloud failure cannot erase
+    # it: the previous version only wrote a report after BOTH products passed, so
+    # one failure at minute twenty would have discarded a product that had already
+    # been accepted at minute fourteen.
+    interim = {
+        "result": "PARTIAL",
+        "runtime": "Jasna v0.10.0 Windows NVIDIA TensorRT",
+        "cloud_compute": "accepted",
+        "cloud_compute_sha256": hashlib.sha256(cloud_output.read_bytes()).hexdigest(),
+        "agent_cloud_computer": "not attempted yet",
+        "paid_resource_started_by_script": False,
+    }
+    (args.output / "report.json").write_text(json.dumps(interim, indent=2), encoding="utf-8")
+    print("PASS Jasna Cloud Compute (recorded); Agent Cloud Computer next")
+
     # Closing one product at a time is a budget decision, not a weaker standard:
     # the Cloud Compute chain above is complete on its own. What must never happen
     # is a report that implies both ran when only one did.
