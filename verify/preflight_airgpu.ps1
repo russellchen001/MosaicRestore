@@ -34,7 +34,12 @@ function Note([string]$label, [string]$value) {
     Write-Host ("  {0,-22} {1}" -f $label, $value)
 }
 function Block([string]$reason) {
-    $blockers += $reason
+    # $script:, not $blockers. A bare += inside a function reads the parent's
+    # array and then assigns a new local one, so every blocker this script found
+    # was discarded and every run ended in PREFLIGHT PASS. A preflight that
+    # cannot fail is worse than no preflight: it is an invitation to deploy onto
+    # a host it just finished disqualifying.
+    $script:blockers += $reason
     Write-Host "  BLOCKER                $reason"
 }
 
@@ -147,13 +152,23 @@ if (-not $chosen) {
 Write-Host '== python =='
 $usable = $null
 $seen = @()
-foreach ($candidate in @(Get-Command python.exe -All -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source | Select-Object -Unique)) {
-    $probe = & $candidate -c 'import sys,platform; print(str(sys.version_info.major)+str(sys.version_info.minor)+" "+platform.machine())' 2>&1
-    $text = "$probe".Trim()
+# The probe carries no quotes of its own. The previous one embedded double
+# quotes inside a string handed to a native executable, and Windows ate them:
+# the interpreter received an unbalanced expression and answered with a
+# SyntaxError, which this script then read as "not a usable interpreter" — on a
+# machine where the interpreter was installed, correct, and three lines above.
+$probeSource = 'import sys,platform;print(sys.version_info[0],sys.version_info[1],platform.machine())'
+$roots = @("$env:SystemDrive\MosaicRuntime\python311\python.exe") +
+         @(Get-Command python.exe -All -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+foreach ($candidate in @($roots | Where-Object { $_ } | Select-Object -Unique)) {
+    if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
+    $probe = & $candidate -c $probeSource 2>&1
+    $text = (@($probe) -join ' ').Trim()
     $seen += "$candidate -> $text"
     Write-Host "  candidate              $candidate -> $text"
     $parts = $text.Split(' ')
-    if ($parts.Count -eq 2 -and $parts[0] -in @('311','312') -and $parts[1] -eq 'AMD64' -and -not $usable) { $usable = $candidate }
+    if ($parts.Count -eq 3 -and $parts[0] -eq '3' -and $parts[1] -in @('11','12') -and
+        $parts[2] -eq 'AMD64' -and -not $usable) { $usable = $candidate }
 }
 Note 'python_candidates' ($(if ($seen.Count) { $seen -join ' | ' } else { 'none' }))
 Note 'python_usable' ($(if ($usable) { $usable } else { 'NONE' }))
