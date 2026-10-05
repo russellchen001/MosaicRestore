@@ -2,6 +2,7 @@ param(
     [string]$Application = 'C:\Jasna\jasna.exe',
     [string]$Ffprobe = 'C:\Jasna\ffprobe.exe',
     [string]$CommandTemplate = '',
+    [string]$Python = '',
     [int]$Minutes = 25
 )
 $ErrorActionPreference = 'Stop'
@@ -10,12 +11,35 @@ $relay = $null
 try {
     if ($Minutes -lt 1 -or $Minutes -gt 25) { throw 'Session limit must be 1..25 minutes' }
     if (-not (Test-Path -LiteralPath $Application -PathType Leaf)) {
-        $roots = @('C:\Jasna', "$env:USERPROFILE\Jasna", "$env:USERPROFILE\Desktop", "$env:USERPROFILE\Downloads")
+        # Several paid windows have left copies behind, so "exactly one or fail"
+        # is the wrong rule: it turns a machine that HAS a usable runtime into a
+        # deployment failure. Candidates are ranked by what actually matters -
+        # an installation is only usable with its pinned weights AND a prebuilt
+        # TensorRT engine, because compiling one inside a billed window is
+        # forbidden. A tie is still refused rather than guessed at.
+        $roots = @('C:\Jasna', 'D:\Jasna', "$env:USERPROFILE\Jasna", "$env:USERPROFILE\Desktop",
+                   "$env:USERPROFILE\Downloads", "$env:ProgramData\Jasna")
         $found = @($roots | Where-Object { Test-Path $_ } | ForEach-Object {
             Get-ChildItem -LiteralPath $_ -Filter jasna.exe -File -Recurse -Depth 4 -ErrorAction SilentlyContinue
         } | Select-Object -ExpandProperty FullName -Unique)
-        if ($found.Count -ne 1) { throw "Expected exactly one existing Jasna runtime, found $($found.Count)" }
-        $Application = $found[0]
+        if ($found.Count -eq 0) { throw "No jasna.exe found under: $($roots -join ', ')" }
+        $ranked = @($found | ForEach-Object {
+            $weights = Join-Path (Split-Path -Parent $_) 'model_weights'
+            [pscustomobject]@{
+                Path = $_
+                Score = (@(Test-Path -LiteralPath (Join-Path $weights 'lada_mosaic_detection_model_v4_fast.pt')),
+                         @(Test-Path -LiteralPath (Join-Path $weights 'lada_mosaic_restoration_model_generic_v1.2.pth')),
+                         @((Test-Path $weights) -and @(Get-ChildItem -LiteralPath $weights -Filter *.engine -File -ErrorAction SilentlyContinue).Count -gt 0)
+                        ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
+            }
+        } | Sort-Object -Property Score -Descending)
+        $best = $ranked[0]
+        if ($best.Score -eq 0) { throw "Found jasna.exe but none carries pinned weights or a TensorRT engine: $($found -join ', ')" }
+        if ($ranked.Count -gt 1 -and $ranked[1].Score -eq $best.Score) {
+            throw "Several equally complete Jasna runtimes; pass -Application explicitly: $(($ranked | Where-Object { $_.Score -eq $best.Score } | Select-Object -ExpandProperty Path) -join ', ')"
+        }
+        $Application = $best.Path
+        Write-Host "Runtime: $Application (completeness $($best.Score)/3)"
     }
     $jasnaRoot = Split-Path -Parent $Application
     if (-not (Test-Path -LiteralPath $Ffprobe -PathType Leaf)) {
@@ -34,9 +58,36 @@ try {
     if ((Get-FileHash "$PSScriptRoot\cloudflared.exe" -Algorithm SHA256).Hash.ToLower() -ne 'f096265ec2fcbe9bb6e2d64268db167ced3fcbb83d894bdb9e2fcdb26f2ea7e2') {
         throw 'cloudflared checksum mismatch'
     }
-    $python = (Get-Command python.exe -ErrorAction Stop).Source
-    $abi = & $python -c 'import sys; print(str(sys.version_info.major)+str(sys.version_info.minor))'
-    if ($LASTEXITCODE -ne 0 -or $abi -notin @('311','312')) { throw 'Existing Python 3.11 or 3.12 required; do not install a runtime during the paid window' }
+    # Resolving the interpreter by PATH alone has already failed twice offline:
+    # the Microsoft Store stub answers Get-Command first on a clean Windows, and a
+    # machine can carry an interpreter whose architecture the bundled wheels do
+    # not match. Both produce a deployment failure inside a billed window for a
+    # machine that actually has a usable Python. So an explicit path wins, and the
+    # fallback inspects every candidate instead of trusting the first.
+    $candidates = @()
+    if ($Python) { $candidates += $Python }
+    $candidates += @(Get-Command python.exe -All -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+    $python = $null
+    $abi = $null
+    $rejected = @()
+    foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
+        $probe = & $candidate -c 'import sys,platform; print(str(sys.version_info.major)+str(sys.version_info.minor)+" "+platform.machine())' 2>&1
+        if ($LASTEXITCODE -ne 0) { $rejected += "${candidate}: not a working interpreter"; continue }
+        $parts = "$probe".Trim().Split(' ')
+        if ($parts.Count -ne 2) { $rejected += "${candidate}: unreadable version probe"; continue }
+        if ($parts[0] -notin @('311','312')) { $rejected += "${candidate}: Python $($parts[0])"; continue }
+        # The bundled wheels are win_amd64. An ARM64 interpreter would fail the
+        # offline install several steps later with a far less obvious message.
+        if ($parts[1] -ne 'AMD64') { $rejected += "${candidate}: $($parts[1]) architecture"; continue }
+        $python = $candidate
+        $abi = $parts[0]
+        break
+    }
+    if (-not $python) {
+        throw "No usable Python 3.11/3.12 AMD64 interpreter. Checked: $($rejected -join '; '). Do not install a runtime during the paid window"
+    }
+    Write-Host "Interpreter: $python (Python $abi AMD64)"
     $run = Join-Path $env:LOCALAPPDATA ("MosaicRestore\P5-" + [guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $run | Out-Null
     & $python -m venv "$run\venv"
