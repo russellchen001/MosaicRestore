@@ -6,7 +6,8 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "MosaicRestore", targets: ["MosaicRestoreDesktop"]),
-        .executable(name: "MosaicRestoreContractCheck", targets: ["MosaicRestoreContractCheck"])
+        .executable(name: "MosaicRestoreContractCheck", targets: ["MosaicRestoreContractCheck"]),
+        .executable(name: "MosaicCloudAdapter", targets: ["MosaicCloudAdapter"])
     ],
     targets: [
         .target(name: "DesktopSupport"),
@@ -17,6 +18,9 @@ let package = Package(
         .executableTarget(
             name: "MosaicRestoreContractCheck",
             dependencies: ["DesktopSupport"]
+        ),
+        .executableTarget(
+            name: "MosaicCloudAdapter"
         )
     ]
 )

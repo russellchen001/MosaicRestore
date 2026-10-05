@@ -13,14 +13,26 @@ use std::time::Duration;
 pub struct LocalLadaProvider {
     executable: PathBuf,
     working_directory: PathBuf,
+    model_weights_directory: PathBuf,
 }
 
 impl LocalLadaProvider {
     pub fn from_root(root: impl Into<PathBuf>) -> Self {
         let requested_root = root.into();
         let root = requested_root.canonicalize().unwrap_or(requested_root);
+
+        let standalone = root.join("lada-cli");
+        let legacy = root.join(".venv/bin/lada-cli");
+
+        let executable = if standalone.is_file() {
+            standalone
+        } else {
+            legacy
+        };
+
         Self {
-            executable: root.join(".venv/bin/lada-cli"),
+            executable,
+            model_weights_directory: root.join("model_weights"),
             working_directory: root,
         }
     }
@@ -53,6 +65,10 @@ impl RestorationProvider for LocalLadaProvider {
                 "--encoding-preset".into(),
                 "h264-cpu-fast".into(),
             ],
+            &[(
+                "LADA_MODEL_WEIGHTS_DIR",
+                self.model_weights_directory.as_path(),
+            )],
             request,
             control,
         )
@@ -97,6 +113,7 @@ impl RestorationProvider for NvidiaJasnaProvider {
                 "--backend".into(),
                 "tensorrt".into(),
             ],
+            &[],
             request,
             control,
         )
@@ -107,6 +124,7 @@ fn run_external(
     executable: &Path,
     working_directory: &Path,
     fixed_args: &[OsString],
+    environment: &[(&str, &Path)],
     request: &RestoreRequest,
     control: &RestoreControl<'_>,
 ) -> Result<RestoreResult, RestoreError> {
@@ -136,9 +154,14 @@ fn run_external(
         stage: "starting-provider",
     });
 
-    let mut child = Command::new(executable)
-        .current_dir(working_directory)
-        .args(fixed_args)
+    let mut command = Command::new(executable);
+    command.current_dir(working_directory).args(fixed_args);
+
+    for (name, value) in environment {
+        command.env(name, value);
+    }
+
+    let mut child = command
         .arg("--input")
         .arg(input)
         .arg("--output")

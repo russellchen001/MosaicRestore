@@ -9,7 +9,6 @@ struct MosaicRestoreApp: App {
             RestoreView()
                 .frame(minWidth: 680, minHeight: 620)
         }
-        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
     }
 }
@@ -39,12 +38,17 @@ private struct RestoreView: View {
                     advancedCard
                     actionBar
                 }
-                .padding(28)
+                .padding(.horizontal, 28)
+                .padding(.top, 44)
+                .padding(.bottom, 28)
                 .frame(maxWidth: 820)
                 .frame(maxWidth: .infinity)
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: model.errorMessage)
+        .sheet(isPresented: $model.isCloudSetupPresented) {
+            CloudSetupView(model: model)
+        }
     }
 
     private var header: some View {
@@ -59,14 +63,14 @@ private struct RestoreView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("MosaicRestore")
                     .font(.system(size: 28, weight: .bold, design: .rounded))
-                Text("Restore video clarity on your Mac or your own cloud GPU.")
+                Text("Restore video clarity locally or in the cloud.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
 
-            Label(model.provider.headerTitle, systemImage: model.provider.symbolName)
+            Label(model.processingMode.headerTitle, systemImage: model.processingMode.symbolName)
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
@@ -113,9 +117,9 @@ private struct RestoreView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SectionLabel(title: "Processing", systemImage: "slider.horizontal.3")
 
-                GlassSegmentedControl(selection: $model.provider, isEnabled: !model.isRunning)
+                GlassSegmentedControl(selection: $model.processingMode, isEnabled: !model.isRunning)
 
-                Text(model.provider.descriptionText)
+                Text(model.processingMode.descriptionText)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -155,30 +159,127 @@ private struct RestoreView: View {
 
     private var advancedCard: some View {
         GlassCard {
-            DisclosureGroup(isExpanded: $model.isAdvancedExpanded) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Divider().opacity(0.5)
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    model.isAdvancedExpanded.toggle()
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .rotationEffect(.degrees(model.isAdvancedExpanded ? 90 : 0))
 
-                    switch model.provider {
-                    case .local:
-                        GlassTextField(title: "Local runtime", text: $model.providerRoot)
-                    case .agentCloud:
-                        GlassTextField(title: "Agent cloud configuration", text: $model.agentCloudConfig)
-                        Label("The external desktop agent owns GUI control, credentials, and session transport.", systemImage: "lock.shield")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    case .nvidia:
-                        GlassTextField(title: "Cloud configuration", text: $model.cloudConfig)
-                        Label("Credentials and provider details stay outside MosaicRestore.", systemImage: "lock.shield")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        SectionLabel(title: "Advanced", systemImage: "gearshape")
+                        Spacer()
                     }
+                    .contentShape(Rectangle())
                 }
-                .padding(.top, 14)
-            } label: {
-                SectionLabel(title: "Advanced", systemImage: "gearshape")
+                .buttonStyle(.plain)
+                .disabled(model.isRunning)
+
+                if model.isAdvancedExpanded {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Divider().opacity(0.5)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Output Folder")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 10) {
+                                Text(model.outputFolderDisplayName)
+                                    .font(.callout)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                                Button("Choose…") {
+                                    model.chooseOutputFolder()
+                                }
+                                .disabled(model.isRunning)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                Color.primary.opacity(0.055),
+                                in: RoundedRectangle(
+                                    cornerRadius: 10,
+                                    style: .continuous
+                                )
+                            )
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Cloud")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 10) {
+                                Label(
+                                    model.cloudConnectionStatus,
+                                    systemImage:
+                                        model.cloudConnectionIsConfigured
+                                        ? "checkmark.circle.fill"
+                                        : "circle.dashed"
+                                )
+                                .font(.callout)
+
+                                Spacer()
+
+                                if model.cloudConnectionIsConfigured {
+                                    Button("Disconnect") {
+                                        model.clearCloudConnection()
+                                    }
+                                    .disabled(model.isRunning)
+                                }
+
+                                Button("Configure…") {
+                                    model.configureCloud()
+                                }
+                                .disabled(model.isRunning)
+                            }
+
+                            Text(
+                                "MosaicRestore uses your configured cloud computer automatically. Provider and execution details stay hidden."
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+
+                        Toggle(
+                            "Show output when processing finishes",
+                            isOn: Binding(
+                                get: { model.revealOutputWhenComplete },
+                                set: { model.setRevealOutputWhenComplete($0) }
+                            )
+                        )
+                        .disabled(model.isRunning)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Diagnostics")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            HStack(spacing: 10) {
+                                Button("Open Logs") {
+                                    model.openLogs()
+                                }
+
+                                Button("Export Report…") {
+                                    model.exportDiagnosticReport()
+                                }
+                            }
+                        }
+                    }
+                    .padding(.top, 14)
+                    .transition(
+                        .opacity.combined(with: .move(edge: .top))
+                    )
+                }
             }
-            .disabled(model.isRunning)
+            .animation(
+                reduceMotion ? nil : .easeOut(duration: 0.18),
+                value: model.isAdvancedExpanded
+            )
         }
     }
 
@@ -212,6 +313,131 @@ private struct RestoreView: View {
         if model.status == "Complete" { return "checkmark.circle.fill" }
         if model.isRunning { return "waveform.path.ecg" }
         return "circle.dotted"
+    }
+}
+
+private struct CloudSetupView: View {
+    @ObservedObject var model: RestoreViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Cloud Setup")
+                        .font(.title2.weight(.bold))
+
+                    Text(
+                        "Connect MosaicRestore to your cloud computer."
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Button {
+                    model.cancelCloudSetup()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Server Address")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                TextField(
+                    "https://your-cloud-server.example",
+                    text: Binding(
+                        get: { model.cloudServerAddress },
+                        set: { model.setCloudServerAddress($0) }
+                    )
+                )
+                .textFieldStyle(.roundedBorder)
+
+                Text("Use the secure HTTPS address provided by your cloud service.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Access Token")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                SecureField(
+                    model.cloudConnectionIsConfigured
+                        ? "Leave blank to keep the saved token"
+                        : "Enter access token",
+                    text: Binding(
+                        get: { model.cloudAccessToken },
+                        set: { model.setCloudAccessToken($0) }
+                    )
+                )
+                .textFieldStyle(.roundedBorder)
+
+                Text("Stored securely in macOS Keychain.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let message = model.cloudSetupMessage {
+                Label(
+                    message,
+                    systemImage:
+                        model.cloudSetupTestPassed
+                        ? "checkmark.circle.fill"
+                        : (
+                            model.cloudSetupIsTesting
+                            ? "arrow.triangle.2.circlepath"
+                            : "info.circle"
+                        )
+                )
+                .font(.callout)
+                .foregroundStyle(
+                    model.cloudSetupTestPassed
+                        ? Color.green
+                        : Color.secondary
+                )
+            }
+
+            Divider()
+
+            HStack {
+                Button("Test Connection") {
+                    model.testCloudConnection()
+                }
+                .disabled(
+                    model.cloudSetupIsTesting
+                    || model.cloudServerAddress
+                        .trimmingCharacters(
+                            in: .whitespacesAndNewlines
+                        )
+                        .isEmpty
+                )
+
+                Spacer()
+
+                Button("Cancel") {
+                    model.cancelCloudSetup()
+                }
+
+                Button("Save") {
+                    model.saveCloudSetup()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(
+                    !model.cloudSetupTestPassed
+                    || model.cloudSetupIsTesting
+                )
+            }
+        }
+        .padding(24)
+        .frame(width: 520)
     }
 }
 
@@ -283,7 +509,12 @@ private final class WindowMaterialHost: NSVisualEffectView {
         window.backgroundColor = .clear
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
-        window.styleMask.insert(.fullSizeContentView)
+        window.styleMask.formUnion([.titled, .closable, .miniaturizable, .resizable])
+        window.styleMask.remove(.fullSizeContentView)
+        for buttonType in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            window.standardWindowButton(buttonType)?.isHidden = false
+            window.standardWindowButton(buttonType)?.alphaValue = 1
+        }
         window.isMovableByWindowBackground = true
     }
 }
@@ -354,12 +585,12 @@ private struct GlassSegmentedControl: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Namespace private var selectionNamespace
 
-    @Binding var selection: RestoreProvider
+    @Binding var selection: UserProcessingMode
     let isEnabled: Bool
 
     var body: some View {
         HStack(spacing: 5) {
-            ForEach(RestoreProvider.allCases) { provider in
+            ForEach(UserProcessingMode.allCases) { provider in
                 Button {
                     selection = provider
                 } label: {
@@ -407,39 +638,31 @@ private struct GlassSegmentedControl: View {
     }
 }
 
-private extension RestoreProvider {
+private extension UserProcessingMode {
     var segmentTitle: String {
         switch self {
-        case .local: "This Mac"
-        case .agentCloud: "Agent PC"
-        case .nvidia: "Cloud GPU"
+        case .local: "Local"
+        case .cloud: "Cloud"
         }
     }
 
     var headerTitle: String {
-        switch self {
-        case .local: "Local"
-        case .agentCloud: "Agent Cloud"
-        case .nvidia: "Cloud"
-        }
+        segmentTitle
     }
 
     var symbolName: String {
         switch self {
         case .local: "laptopcomputer"
-        case .agentCloud: "desktopcomputer"
-        case .nvidia: "cloud"
+        case .cloud: "cloud"
         }
     }
 
     var descriptionText: String {
         switch self {
         case .local:
-            "Runs privately on this Mac with Apple Silicon acceleration."
-        case .agentCloud:
-            "A remote desktop agent operates your rented GPU computer through its GUI session."
-        case .nvidia:
-            "Uses your own NVIDIA account or host. GPU charges go directly to your provider."
+            "Runs privately on this Mac."
+        case .cloud:
+            "MosaicRestore connects to your configured cloud computer and handles the restoration workflow automatically."
         }
     }
 }

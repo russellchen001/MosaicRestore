@@ -43,6 +43,7 @@ Both share one Mosaic Core.
 - The accepted reference transport is an authenticated HTTPS relay to a Windows GUI agent. Task start/cancel must produce GUI action evidence; direct SSH or the P4 cloud runner is rejected as this provider's execution transport.
 - Microsoft UFO2/UFO3 (MIT) may replace the reference agent at the adapter boundary. The bundled standalone path uses pywinauto (BSD-3-Clause) for Windows UI Automation and keeps pywinauto, Lada, relay software, credentials, and rented-machine details outside Core/Desktop.
 - The Desktop app icon is a repository-owned macOS `.icns` family generated from one 1024×1024 master. The manual app-bundle build copies it into `Contents/Resources`, and `CFBundleIconFile` is the single icon metadata authority.
+- Desktop keeps a native transparent titlebar but does not use `fullSizeContentView`, so the standard close, minimize, and zoom controls remain visible. The complete Advanced header is one explicit button rather than a disclosure control with a chevron-only hit target.
 
 ## Execution Providers
 1. Local Computer.
@@ -180,6 +181,7 @@ P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jo
 - The complete repository history is published independently at `https://github.com/russellchen001/MosaicRestore` with PUBLIC visibility. Its only remote is this repository's `origin`; no AI-OS remote is configured and history was not rewritten.
 - `desktop/build_app.sh` resolves SwiftPM's active release binary directory instead of copying from the legacy `.build/release` path, preventing a stale Desktop executable from being packaged under newer Xcode output layouts.
 - The formal MosaicRestore app icon is complete: its dark glass reconstruction mark is exported at every standard and Retina macOS size, packaged as `MosaicRestore.icns`, declared through `CFBundleIconFile`, and reused by the in-window header. The signed release bundle and running window were verified.
+- Post-icon UI acceptance confirmed the native red/yellow/green controls are visibly rendered and the full Advanced row expands its settings. The previous `/Applications/MosaicRestore.app` was an obsolete 0.2.0 build without icon metadata; it was backed up before installing the verified 1.0.0 (100) bundle.
 - This Mac has no Apple Developer signing identity. The user accepts ad-hoc signing and macOS “Open Anyway” for the next app build; Developer ID signing and notarization are intentionally not a release blocker. Local ad-hoc installation is verified, and the app must not be described as Developer ID-signed or notarized.
 - Version surfaces are closed at Core `1.0.0` and Desktop `1.0.0` (build `100`). The public GitHub release is source-only unless a properly Developer ID-signed and notarized app is produced later.
 - The first P3 verifier invocation hit the known shared-fixture race while its embedded Core tests ran in parallel (`transport=ssh` leaked from another test). Every P3 behavior check still passed; the authoritative `RUST_TEST_THREADS=1` rerun passed P3–P5, 19 Core tests, 12 Linux-agent tests, fmt, Clippy, Swift Release, Desktop launch, strict ad-hoc signature, and glass UI acceptance. No product code was changed to mask the test isolation issue.
@@ -330,3 +332,96 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 - Open, non-blocking: rebuild the offline bundle so it already contains the accepted `deploy_windows_agent.ps1` and `windows_gui_agent.py` instead of relying on runtime overlays.
 - The existing source release remains published; do not delete its tag or rewrite history. The user accepts ad-hoc signing and macOS “Open Anyway” for v1.0.1, matching AI-OS; Developer ID signing and notarization are not a release blocker. Do not present the app as Developer ID-signed or notarized.
 - The AI-OS repository was not modified.
+
+## v1.0.1 Beta Phase
+
+### Status
+- v1.0.1 is now in Beta preparation. The current Desktop version is `1.0.1`
+  build `102`.
+- The Beta tag is `v1.0.1-beta.1`.
+- Product functionality is feature-frozen during Beta. Only bugs,
+  compatibility issues, installation issues, security issues, and
+  release-blocking defects should be changed.
+- The existing published `v1.0.0` release/tag/history must remain untouched.
+
+### Local release runtime
+- The customer Local path no longer depends on
+  `~/MosaicRestore/benchmark/lada-upstream` at runtime.
+- `scripts/build_lada_runtime_macos.sh` reproducibly creates the standalone
+  macOS arm64 Lada runtime.
+- Frozen Lada resolves model weights from `_internal/model_weights`.
+- The distributed runtime contains exactly two production models:
+  `lada_mosaic_detection_model_v4_fast.pt` and
+  `lada_mosaic_restoration_model_generic_v1.2.pth`.
+- No duplicate root `model_weights` directory is distributed.
+- Standalone frozen-runtime restore passed on MPS.
+- Mosaic Core -> App-bundled frozen Local runtime restore passed.
+- The runtime includes Lada/source/model license notices and records the
+  exact upstream Lada commit used to build it.
+
+### Desktop / customer UX
+- Normal user-facing processing choices are only `Local` and `Cloud`.
+- Output Folder is selectable, used by processing, and persisted between
+  launches.
+- Advanced settings remain available without exposing internal provider
+  architecture.
+- Header copy is `Restore video clarity locally or in the cloud.`
+- Native macOS red/yellow/green window controls are present.
+- Finder application icon is correct.
+- The earlier apparent launcher icon defect was caused by LaunchOS caching;
+  removing/re-adding or rescanning the app fixed it. It was not a
+  MosaicRestore bundle/icon defect.
+
+### Cloud Setup
+- Cloud Configure is an in-app setup flow rather than a `.conf` file picker.
+- The user sees Server Address and Access Token only.
+- The token is stored in macOS Keychain under service
+  `com.mosaicrestore.cloud`; it is not stored in plaintext Cloud config.
+- MosaicRestore automatically generates its internal Cloud profile/config.
+- Cloud configuration survives application restart and reports Configured.
+- A local HTTPS fixture verified Test Connection, Save, persistence,
+  Keychain storage, and absence of plaintext token storage.
+- The fixture certificate, test token, profile, and test config were removed
+  after acceptance.
+- No paid cloud instance was used for this setup acceptance.
+
+### Native Cloud adapter
+- The macOS app bundles the native `mosaic-cloud-adapter`.
+- Customer Cloud configuration does not require Python.
+- Formal Cloud Compute and Agent Cloud Computer real Windows/T4/Jasna
+  acceptance from 2026-10-05 remains authoritative.
+- No paid cloud retest is required for Beta unless the Cloud protocol or
+  execution adapter behavior changes.
+
+### v1.0.1 release candidate packaging
+- Desktop bundle version: `1.0.1 (102)`.
+- The final RC App includes Local runtime, detector, restorer, third-party
+  notices, Mosaic Core, and native Cloud adapter.
+- Strict ad-hoc `codesign --verify --deep --strict` passes.
+- The DMG can be mounted and the bundled App verifies successfully.
+- Installing the App from the DMG into `/Applications` produces the same
+  main executable SHA-256 as the DMG copy.
+- Developer ID signing and notarization are intentionally not blockers for
+  this Beta. Do not describe the Beta as Developer ID signed or notarized.
+
+### Beta policy
+- Use `BETA_TESTING.md` as the Beta acceptance checklist.
+- Target 3–5 Apple Silicon Macs when practical, preferably spanning
+  M1/M2, M3, and M4.
+- At least one tester should not have participated in development.
+- Beta should focus on installation, first-run behavior, Local processing,
+  output persistence, cancellation, error recovery, batch processing,
+  Cloud Setup, and upgrade/replacement installation.
+- The already accepted ~70-minute Local quality run does not need to be
+  repeated by every Beta tester.
+- Do not spend money repeating formal Cloud GPU acceptance unless a Beta fix
+  changes that execution path.
+
+### Release progression
+1. Freeze and publish `v1.0.1-beta.1` as a GitHub prerelease.
+2. Collect Beta defects using `BETA_TESTING.md`.
+3. Fix only Beta-relevant defects.
+4. Increase build number for every replacement Beta binary.
+5. Release another Beta only when necessary.
+6. When Beta exit criteria pass, rebuild from the final commit and publish
+   `v1.0.1`.

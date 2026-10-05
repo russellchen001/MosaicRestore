@@ -10,3 +10,6 @@ desktop/build/
 .mosaic-restore/
 __pycache__/
 *.py[cod]
+
+# Local build/test artifacts
+work/
