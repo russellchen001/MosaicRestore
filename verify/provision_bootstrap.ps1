@@ -14,8 +14,15 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function Fetch([string]$name) {
+    # The CDN in front of raw.githubusercontent caches per edge for minutes. A
+    # window that fetched an older copy ran an older script and reported an
+    # older verdict, which is indistinguishable on screen from a fix that did
+    # not work — and costs a window to discover. A unique query string and a
+    # no-cache header make the edge ask the origin every time.
     $path = Join-Path $env:TEMP $name
-    & curl.exe -fL --connect-timeout 10 --max-time 30 --retry 0 -sS -o $path "$RawBase/verify/$name"
+    $url  = "$RawBase/verify/$name" + '?cb=' + [guid]::NewGuid().ToString('N')
+    & curl.exe -fL --connect-timeout 10 --max-time 30 --retry 0 -sS `
+        -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' -o $path $url
     if ($LASTEXITCODE -ne 0) { throw "could not fetch $name" }
     return $path
 }
