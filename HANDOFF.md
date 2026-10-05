@@ -425,3 +425,57 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 5. Release another Beta only when necessary.
 6. When Beta exit criteria pass, rebuild from the final commit and publish
    `v1.0.1`.
+
+## v1.0.1 Beta 2
+
+### Beta defect #1 — bundled ffmpeg / ffprobe
+
+Severity: High
+
+Status: CLOSED
+
+`v1.0.1-beta.1` exposed the first real installed-app Beta defect.
+
+When Local processing was launched from the installed macOS GUI app, Mosaic
+Core failed before restoration with:
+
+`ExecutionFailed: failed to start ffprobe: No such file or directory (os error 2)`
+
+Root cause:
+
+- Mosaic Core invoked `ffmpeg` and `ffprobe` by executable name through PATH.
+- The development shell had Homebrew `/opt/homebrew/bin` available.
+- A normal Finder/LaunchOS-launched application does not inherit that shell
+  PATH.
+- The distributed Lada runtime already contained working arm64 ffmpeg and
+  ffprobe binaries, but Mosaic Core did not resolve them.
+
+Fix:
+
+- Mosaic Core now supports the internal `MOSAIC_MEDIA_BIN_DIR` tool location.
+- The Desktop app resolves its bundled
+  `Contents/Resources/Runtime/Lada/_internal/bin` directory.
+- Desktop passes that directory to Mosaic Core for Local processing.
+- Core preferentially resolves ffmpeg and ffprobe from that directory.
+- Development/non-app execution retains PATH fallback behavior.
+- No additional duplicate FFmpeg runtime is added to the product.
+
+Acceptance:
+
+- Desktop version remains `1.0.1`; build advanced from `102` to `103`.
+- Core test suite: 19 passed, 0 failed.
+- Swift Release build passed.
+- Desktop contract passed.
+- Bundled ffmpeg 8.1.2 verified.
+- Bundled ffprobe 8.1.2 verified.
+- Both tools execute successfully in a clean GUI-style environment without
+  Homebrew PATH.
+- Built and installed app signatures verify with strict ad-hoc codesign.
+- `/Applications/MosaicRestore.app` reports build `103`.
+- The same `HMN-728_FHD_CH.mp4` that failed under Beta 1 was launched again
+  through the normal installed GUI Local path.
+- Processing entered `Restoring video...` and progressed to at least 1%.
+- The previous `failed to start ffprobe` error did not recur.
+
+The Beta 1 tag and release remain immutable. This fix belongs to
+`v1.0.1-beta.2`.

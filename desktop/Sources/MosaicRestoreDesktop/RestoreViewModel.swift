@@ -536,6 +536,35 @@ final class RestoreViewModel: ObservableObject {
             task.standardOutput = outputPipe
             task.standardError = outputPipe
 
+            var environment = ProcessInfo.processInfo.environment
+
+            if let resources = Bundle.main.resourceURL {
+                let mediaBin =
+                    resources
+                        .appendingPathComponent(
+                            "Runtime/Lada/_internal/bin",
+                            isDirectory: true
+                        )
+
+                let ffmpeg =
+                    mediaBin.appendingPathComponent("ffmpeg")
+
+                let ffprobe =
+                    mediaBin.appendingPathComponent("ffprobe")
+
+                if FileManager.default.isExecutableFile(
+                    atPath: ffmpeg.path
+                ),
+                FileManager.default.isExecutableFile(
+                    atPath: ffprobe.path
+                ) {
+                    environment["MOSAIC_MEDIA_BIN_DIR"] =
+                        mediaBin.path
+                }
+            }
+
+            task.environment = environment
+
             outputBuffer = ""
 
             outputPipe.fileHandleForReading.readabilityHandler = {

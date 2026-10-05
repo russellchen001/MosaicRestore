@@ -13,6 +13,19 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::UNIX_EPOCH;
 
+const MEDIA_BIN_DIR_ENV: &str = "MOSAIC_MEDIA_BIN_DIR";
+
+fn media_tool(name: &str) -> PathBuf {
+    if let Some(dir) = std::env::var_os(MEDIA_BIN_DIR_ENV) {
+        let candidate = PathBuf::from(dir).join(name);
+        if candidate.is_file() {
+            return candidate;
+        }
+    }
+
+    PathBuf::from(name)
+}
+
 #[derive(Debug, Clone)]
 pub struct ProductionOptions {
     pub chunk_seconds: f64,
@@ -344,7 +357,7 @@ fn report_chunk_progress(
 }
 
 fn split_chunk(input: &Path, output: &Path, chunk: &ChunkPlan) -> Result<(), RestoreError> {
-    let status = Command::new("ffmpeg")
+    let status = Command::new(media_tool("ffmpeg"))
         .args(["-v", "error", "-y", "-ss"])
         .arg(format!("{:.3}", chunk.start_seconds))
         .arg("-i")
@@ -400,7 +413,7 @@ fn concatenate_chunks(
             .replace('\'', "'\\''");
         writeln!(list, "file '{escaped}'").map_err(io_error("write concat list"))?;
     }
-    let status = Command::new("ffmpeg")
+    let status = Command::new(media_tool("ffmpeg"))
         .args(["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i"])
         .arg(&list_path)
         .args(["-c", "copy"])
@@ -423,7 +436,7 @@ fn concatenate_chunks(
 }
 
 fn probe_duration(path: &Path) -> Result<f64, RestoreError> {
-    let output = Command::new("ffprobe")
+    let output = Command::new(media_tool("ffprobe"))
         .args([
             "-v",
             "error",
