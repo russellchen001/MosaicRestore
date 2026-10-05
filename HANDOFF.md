@@ -42,6 +42,7 @@ Both share one Mosaic Core.
 - Agent Cloud Computer is a third provider contract, not an AI-OS feature branch: Core owns its lifecycle but delegates desktop control to an external agent adapter.
 - The accepted reference transport is an authenticated HTTPS relay to a Windows GUI agent. Task start/cancel must produce GUI action evidence; direct SSH or the P4 cloud runner is rejected as this provider's execution transport.
 - Microsoft UFO2/UFO3 (MIT) may replace the reference agent at the adapter boundary. The bundled standalone path uses pywinauto (BSD-3-Clause) for Windows UI Automation and keeps pywinauto, Lada, relay software, credentials, and rented-machine details outside Core/Desktop.
+- The Desktop app icon is a repository-owned macOS `.icns` family generated from one 1024×1024 master. The manual app-bundle build copies it into `Contents/Resources`, and `CFBundleIconFile` is the single icon metadata authority.
 
 ## Execution Providers
 1. Local Computer.
@@ -178,7 +179,8 @@ P3 chunking/checkpoint behavior remains above the provider boundary, so cloud jo
 - `verify/verify_glass_ui.sh` performs an actual Release build, validates both bundled executables and the strict app signature, reads bundle metadata, and launches the Desktop process. It passes together with P1–P5 regression, 12 Linux-agent tests, Rust formatting, Clippy with warnings denied, and Swift Release; the installed `/Applications/MosaicRestore.app` was relaunched from a single fresh process and its transparent titlebar, layered cards, and segmented selection states were visually confirmed.
 - The complete repository history is published independently at `https://github.com/russellchen001/MosaicRestore` with PUBLIC visibility. Its only remote is this repository's `origin`; no AI-OS remote is configured and history was not rewritten.
 - `desktop/build_app.sh` resolves SwiftPM's active release binary directory instead of copying from the legacy `.build/release` path, preventing a stale Desktop executable from being packaged under newer Xcode output layouts.
-- This Mac has no Apple Developer signing identity. Developer ID signing, notarization, and Gatekeeper-ready external distribution remain a release blocker outside the repository; local ad-hoc installation is verified.
+- The formal MosaicRestore app icon is complete: its dark glass reconstruction mark is exported at every standard and Retina macOS size, packaged as `MosaicRestore.icns`, declared through `CFBundleIconFile`, and reused by the in-window header. The signed release bundle and running window were verified.
+- This Mac has no Apple Developer signing identity. The user accepts ad-hoc signing and macOS “Open Anyway” for the next app build; Developer ID signing and notarization are intentionally not a release blocker. Local ad-hoc installation is verified, and the app must not be described as Developer ID-signed or notarized.
 - Version surfaces are closed at Core `1.0.0` and Desktop `1.0.0` (build `100`). The public GitHub release is source-only unless a properly Developer ID-signed and notarized app is produced later.
 - The first P3 verifier invocation hit the known shared-fixture race while its embedded Core tests ran in parallel (`transport=ssh` leaked from another test). Every P3 behavior check still passed; the authoritative `RUST_TEST_THREADS=1` rerun passed P3–P5, 19 Core tests, 12 Linux-agent tests, fmt, Clippy, Swift Release, Desktop launch, strict ad-hoc signature, and glass UI acceptance. No product code was changed to mask the test isolation issue.
 
@@ -324,6 +326,7 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 
 ## Remaining Release Blockers
 - No functional blocker remains for the three providers. Cloud Compute and Agent Cloud Computer were accepted on 2026-10-05 at smoke scale (14- and 48-frame clips), and Agent Cloud included reconnect and GUI cancellation with process exit. AI-OS v2.0 host wiring may treat all three providers as accepted.
-- Open, non-blocking: (1) a long-video cloud run, for throughput and cost per minute of video; (2) rebuild the offline bundle so it already contains today's `deploy_windows_agent.ps1` and `windows_gui_agent.py` instead of relying on runtime overlays; (3) the US$0.84 credit gap seen before the first window (US$10.51 expected, US$9.67 shown) was not reconciled.
-- The existing source release remains published; do not delete its tag or rewrite history. External app distribution separately requires a valid Apple Developer signing identity and notarization, and the current app must not be presented as a formally distributed macOS build.
+- Product decisions: no cloud long-video run is required; the existing real Jasna smoke-scale acceptance is sufficient. The historical US$0.84 AirGPU credit discrepancy is closed without further reconciliation. Neither item blocks v1.0.1.
+- Open, non-blocking: rebuild the offline bundle so it already contains the accepted `deploy_windows_agent.ps1` and `windows_gui_agent.py` instead of relying on runtime overlays.
+- The existing source release remains published; do not delete its tag or rewrite history. The user accepts ad-hoc signing and macOS “Open Anyway” for v1.0.1, matching AI-OS; Developer ID signing and notarization are not a release blocker. Do not present the app as Developer ID-signed or notarized.
 - The AI-OS repository was not modified.

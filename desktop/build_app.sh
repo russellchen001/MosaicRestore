@@ -12,6 +12,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$DESKTOP_BIN_DIR/MosaicRestore" "$APP/Contents/MacOS/MosaicRestore"
 cp core/target/release/mosaic-core "$APP/Contents/Resources/mosaic-core"
+cp desktop/Resources/MosaicRestore.icns "$APP/Contents/Resources/MosaicRestore.icns"
 cp desktop/Resources/Info.plist "$APP/Contents/Info.plist"
 chmod +x "$APP/Contents/MacOS/MosaicRestore" "$APP/Contents/Resources/mosaic-core"
 codesign --force --deep --sign - "$APP" >/dev/null

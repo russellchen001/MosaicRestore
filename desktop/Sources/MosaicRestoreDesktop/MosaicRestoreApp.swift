@@ -49,12 +49,12 @@ private struct RestoreView: View {
 
     private var header: some View {
         HStack(spacing: 16) {
-            Image(systemName: "wand.and.stars.inverse")
-                .font(.system(size: 24, weight: .semibold))
-                .foregroundStyle(.white)
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
                 .frame(width: 50, height: 50)
-                .background(Color.accentColor.gradient, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-                .shadow(color: Color.accentColor.opacity(0.24), radius: 14, y: 7)
+                .shadow(color: Color.black.opacity(0.18), radius: 12, y: 6)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("MosaicRestore")

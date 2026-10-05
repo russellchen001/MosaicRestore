@@ -8,6 +8,8 @@
     <string>MosaicRestore</string>
     <key>CFBundleIdentifier</key>
     <string>com.russellchen.mosaicrestore</string>
+    <key>CFBundleIconFile</key>
+    <string>MosaicRestore.icns</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
