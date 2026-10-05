@@ -256,7 +256,7 @@ class WindowScriptTextTests(unittest.TestCase):
 
     def test_bootstrap_captures_the_receivers_information_stream(self):
         script = (ROOT / "verify/window_bootstrap.ps1").read_text(encoding="utf-8")
-        self.assertIn("& $receive 6>&1", script)
+        self.assertIn("& $receive -RawBase $RawBase 6>&1", script)
         self.assertIn("-AsSecureString", script)
 
 

@@ -56,7 +56,7 @@ $receive = Fetch 'receive-p5.ps1'
 # The receiver reports with Write-Host, which writes to the information stream
 # (6), not the output stream. Capturing only the output stream left this empty
 # on a transfer that had passed, and the window was stopped over a parse.
-$transcript = @(& $receive 6>&1 | ForEach-Object { "$_" })
+$transcript = @(& $receive -RawBase $RawBase 6>&1 | ForEach-Object { "$_" })
 $transcript | ForEach-Object { Write-Host $_ }
 if ($LASTEXITCODE -ne 0) { Write-Host ''; Write-Host 'STOP THE MACHINE NOW. The bundle did not transfer.'; exit 1 }
 $line = $transcript | Where-Object { $_ -match 'deployment directory (.+)$' } | Select-Object -Last 1
