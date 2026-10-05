@@ -194,7 +194,8 @@ class AgentState:
 
         process_id = int(metadata.get("powershell_pid", 0))
         if process_id:
-            window = Application(backend="uia").connect(process=process_id).top_window()
+            window_pid = int(metadata.get("window_pid", process_id))
+            window = Application(backend="uia").connect(process=window_pid).top_window()
             window.capture_as_image().save(root / "action-reconnect.png")
         metadata["reconnect_processes"] = self.processes(process_id) if process_id else []
         metadata["reconnected_at"] = time.time()
@@ -301,9 +302,22 @@ class AgentState:
         import win32clipboard
 
         script = self.build_script(root)
+        # Windows 11 and Server 2025 hand a bare powershell.exe to Windows
+        # Terminal, so the window belongs to another process and UIA finds none
+        # for the one it started. conhost.exe forces the classic console, whose
+        # window is owned by the launched process. PowerShell is its child.
         application = Application(backend="uia").start(
-            "powershell.exe -NoLogo -NoExit -NoProfile", wait_for_idle=False
+            "conhost.exe powershell.exe -NoLogo -NoExit -NoProfile", wait_for_idle=False
         )
+        shell_pid = 0
+        deadline = time.monotonic() + 15
+        while not shell_pid and time.monotonic() < deadline:
+            shell_pid = next((int(item["ProcessId"]) for item in self.processes(application.process)
+                              if item["Name"].lower() == "powershell.exe"), 0)
+            if not shell_pid:
+                time.sleep(0.25)
+        if not shell_pid:
+            raise RuntimeError("conhost started but no PowerShell child appeared")
         window = application.top_window()
         window.wait("visible", timeout=20)
         window.set_focus()
@@ -322,8 +336,9 @@ class AgentState:
             {
                 "state": "running",
                 "started_at": time.time(),
-                "powershell_pid": application.process,
-                "launch_processes": self.processes(application.process),
+                "powershell_pid": shell_pid,
+                "window_pid": application.process,
+                "launch_processes": self.processes(shell_pid),
                 "gui_actions": 3,
                 "action_receipt": receipt,
             }
@@ -379,7 +394,7 @@ class AgentState:
         if process_id:
             from pywinauto import Application, keyboard
 
-            application = Application(backend="uia").connect(process=process_id)
+            application = Application(backend="uia").connect(process=int(metadata.get("window_pid", process_id)))
             window = application.top_window()
             before = self.processes(process_id)
             tracked = {int(item["ProcessId"]) for item in before if int(item["ProcessId"]) != process_id}
@@ -633,7 +648,7 @@ class Handler(BaseHTTPRequestHandler):
 
                 if any(int(item["ProcessId"]) != process_id for item in self.server.state.processes(process_id)):
                     raise OSError("cannot clean up while restoration children are running")
-                app = Application(backend="uia").connect(process=process_id)
+                app = Application(backend="uia").connect(process=int(metadata.get("window_pid", process_id)))
                 app.top_window().close()
                 app.wait_for_process_exit(timeout=10)
             archive = self.server.state.evidence_path(parts[2], self.session(query))
