@@ -10,7 +10,7 @@ No cloud resource may be started during this documentation closure. AI-OS is unc
 - AirGPU Windows/T4 historically ran real Jasna v0.10.0 with Lada YOLO v4 detection and BasicVSR++/TensorRT restoration. After cache warm-up, it processed the approximately 60-second P0 sample in 36.25 seconds. This proves the Windows/T4 Jasna runtime can work; it does not accept the current automated product paths.
 - RunPod Linux Jasna v0.10.0 portable loaded its engines but stalled at `Processing video: 0%`, with 0% GPU use and no output. Linux Jasna is not the recommended closure path.
 - P5 RunPod Linux/Lada CUDA genuinely proved provider contract behavior, visible GUI-agent launch, session reconnect, stable PID/start time and progress continuity, cancellation/process exit, download, SHA-256 and ffprobe. Those results remain authoritative infrastructure evidence only.
-- Formal Cloud Compute is blocked because the Jasna Windows headless/automation runner has not completed a real E2E that restores media and verifies download, SHA-256 and ffprobe.
+- Formal Cloud Compute **PASSED a real E2E on 2026-10-05**: Mosaic Core → HTTPS relay → AirGPU Windows Tesla T4 → Jasna v0.10.0 with TensorRT fp16 engines → download → SHA-256 → ffprobe. See "Cloud Compute E2E — PASS" below. The evidence is a 14-frame smoke clip; it proves the capability, not long-video throughput.
 - Formal Agent Cloud Computer is blocked because GUI Agent → Jasna Windows/TensorRT has not completed a real E2E with restore/download/hash/ffprobe plus session reconnect, PID/start-time/progress continuity and cancel/process-exit evidence.
 - Therefore it is inaccurate to describe v1.0.0 as having all three product execution paths complete. The release's Local/Core/Desktop/long-video and infrastructure capabilities remain valid; formal Jasna Cloud/Agent Cloud acceptance remains incomplete.
 
@@ -290,6 +290,15 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 - The operator's token was typed in clear at a `Read-Host` prompt and appeared in a screenshot shared in the session transcript. Treat it as exposed. Next window: use a fresh `openssl rand -hex 16` token. The bootstrap's mandatory `-Token` prompt also echoes, so a non-echoing prompt is still open work.
 - Cloud Compute remains NOT RUN: no restoration, download, hash or ffprobe happened. The lesson again: two of the three gates in this window's chain had only ever passed on fixtures or by text. Both defects were in glue that had never run end to end on Windows, not in the host.
 
+### Cloud Compute E2E — PASS (2026-10-05, second window)
+- Operating rule changed at the user's direction: no stop on a glue failure. Fix it inside the window, rerun, and stop only on success or a real dead end. Credit was not the constraint; this whole window cost cents.
+- Deployment PASS after the fixes in `1bcf2f2` (bootstrap stream 6, provisioned Python and ffprobe). The first run then reached Jasna itself: the model loaded on the T4, but `run-visible.ps1` ran under `ErrorAction Stop`, so Jasna's INFO lines on stderr ended a healthy run as failed. Fixed in `fc744e6`: the native command runs non-terminating and is judged by its exit code, and `windows_gui_agent.py` was added to the receiver overlay. The overlay did not take effect on the first retry (the CDN most likely served the old receiver), so the agent was fetched by pinned commit SHA into the deployment directory and redeployed.
+- Result: `mosaic-core --provider cloud-nvidia` reached `PASS restore` in 24.7 s end to end. Report `result=PASS`, runtime `Jasna v0.10.0 Windows NVIDIA TensorRT`. GPU `Tesla T4`; run log shows `BasicVSR++ using TRT sub-engines (fp16=True)` and the `lada_mosaic_detection_model_v4_fast.fp16.win.engine` detector.
+- Input `benchmark/samples/p1_lada_smoke.mp4`, SHA-256 `f1357299f8007e582f44347f262f3787357ab0f1962bcb7a18b1a15050a40a56`. Output SHA-256 `23c056c11901e5b5bdfc64b7602b4650e5c8e9650f9dc914ba758778239fdabb`. ffprobe for both: H.264, 320×180, 29.97 fps, 14 frames, 0.467 s; the output decodes fully without error. The evidence directory stayed outside git, on the controlling Mac under `$TMPDIR/mosaic-window-20261005T084707Z/evidence`.
+- Stopped by the operator after PASS; the dashboard went through Stopping and Backing up to **Off**. Credit went from US$9.42 to **US$9.00**, so this window cost US$0.42 as displayed.
+- Agent Cloud Computer was NOT RUN by choice; this window's scope was Cloud Compute only. The same deployed agent serves it, so it is the next and only remaining cloud blocker.
+- Open follow-ups: (1) the receiver overlay should fetch by commit SHA, not `master`, since the CDN defeated it once more; (2) a long-video cloud run.
+
 ## AI-OS Integration Boundary
 - AI-OS must call the same Mosaic Core library or CLI contract used by Desktop: `RestoreRequest`, provider-neutral `RestorationProvider`, `ProgressUpdate`, `CancellationToken`, `RestoreErrorKind`, and the P3 production workflow.
 - AI-OS must supply external runtime or cloud configuration at the adapter boundary. Vendor credentials, SSH keys, RunPod APIs, Lada source, and Jasna source must not enter Core or AI-OS persistence.
@@ -304,7 +313,7 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 - RunPod was not started for this gate. Incremental RunPod cost is US$0.00; the previously accepted P5 instances remain recorded as stopped at US$0.00/hour.
 
 ## Remaining Release Blockers
-- Formal Cloud Compute remains blocked on a real Windows/NVIDIA/Jasna headless E2E with restore, download, SHA-256 and ffprobe evidence.
+- Formal Cloud Compute: real E2E accepted on 2026-10-05 (smoke clip). A long-video cloud run is still unmeasured.
 - Formal Agent Cloud Computer remains blocked on a real GUI Agent → Windows/NVIDIA/Jasna E2E with restore/download/hash/ffprobe, reconnect continuity, PID/start-time/progress continuity, cancellation and process-exit evidence.
 - These are MosaicRestore-side product blockers. They are not closed by the accepted Linux/Lada CUDA infrastructure lifecycle and must be completed before AI-OS v2.0 host wiring can treat all three providers as accepted.
 - The existing source release remains published; do not delete its tag or rewrite history. External app distribution separately requires a valid Apple Developer signing identity and notarization, and the current app must not be presented as a formally distributed macOS build.
