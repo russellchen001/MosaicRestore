@@ -13,7 +13,7 @@ param(
     [string[]]$Required = @('deploy_windows_agent.cmd','deploy_windows_agent.ps1','deploy_windows_jasna.cmd',
                             'windows_gui_agent.py','cloudflared.exe','SHA256.json','jasna-airgpu-v0.10.0.json','wheels'),
     [string]$RawBase = 'https://raw.githubusercontent.com/russellchen001/MosaicRestore/master',
-    [string[]]$Overlay = @('adapters/deploy_windows_agent.ps1')
+    [string[]]$Overlay = @('adapters/deploy_windows_agent.ps1', 'adapters/windows_gui_agent.py')
 )
 $ErrorActionPreference = 'Stop'
 $unpack = $null

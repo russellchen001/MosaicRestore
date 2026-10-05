@@ -272,8 +272,14 @@ class AgentState:
             "$ErrorActionPreference = 'Stop'\n"
             f"Set-Content -LiteralPath {powershell_quote(str(state_path))} -Value 'running'\n"
             "try {\n"
+            # Jasna logs INFO to stderr. Under 'Stop' the first such line became a
+            # terminating error and a healthy run was recorded as failed, so the
+            # native command runs non-terminating and is judged by its exit code.
+            "  $ErrorActionPreference = 'Continue'\n"
             f"  & {{ {command} }} *>&1 | Tee-Object -FilePath {powershell_quote(str(run_log))}\n"
-            "  if ($LASTEXITCODE -ne 0) { throw \"restoration exited $LASTEXITCODE\" }\n"
+            "  $code = $LASTEXITCODE\n"
+            "  $ErrorActionPreference = 'Stop'\n"
+            "  if ($code -ne 0) { throw \"restoration exited $code\" }\n"
             f"  if (-not (Test-Path -LiteralPath {powershell_quote(str(output_path))})) {{ throw 'output missing' }}\n"
             f"  Set-Content -LiteralPath {powershell_quote(str(state_path))} -Value 'succeeded'\n"
             "} catch {\n"
