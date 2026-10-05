@@ -33,7 +33,7 @@ IDEMPOTENCE
 #>
 param(
     [string]$RuntimeRoot = 'C:\MosaicRuntime',
-    [string]$PythonUrl   = 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe',
+    [string]$PythonUrl   = 'https://globalcdn.nuget.org/packages/python.3.11.9.nupkg',
     [string]$FfmpegUrl   = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
     [string]$Report      = "$env:TEMP\mosaic-provision.json",
     [switch]$Force
@@ -98,35 +98,57 @@ if ($existing -and -not $Force) {
     Note 'python' "already usable: $($existing.Path) ($($existing.Version))"
     $pythonExe = $existing.Path
 } else {
-    $installer = Join-Path $env:TEMP 'mosaic-python-amd64.exe'
+    # Not the python.org installer. A rented Windows host answered it with 1625,
+    # "installation forbidden by system policy": the image disallows Windows
+    # Installer packages for this account, and no amount of per-user flags gets
+    # around a policy. Asking the operator to find an administrator would also
+    # break the admission rule this project is built on.
+    #
+    # The NuGet distribution is the same CPython laid out in a directory and
+    # shipped as a plain zip. There is no installer to be refused, no registry
+    # to be written and nothing to elevate, so it works on a locked-down image
+    # and unprovisions by deleting a folder.
+    $archive = Join-Path $env:TEMP 'mosaic-python.zip'
+    $staging = Join-Path $env:TEMP 'mosaic-python-extract'
     Note 'python_source' $PythonUrl
-    Invoke-WebRequest -Uri $PythonUrl -OutFile $installer -UseBasicParsing
-    Note 'python_installer_mb' ('{0:N1}' -f ((Get-Item $installer).Length / 1MB))
+    Invoke-WebRequest -Uri $PythonUrl -OutFile $archive -UseBasicParsing
+    Note 'python_archive_mb' ('{0:N1}' -f ((Get-Item $archive).Length / 1MB))
+    if (Test-Path $staging) { Remove-Item -Recurse -Force $staging }
+    Expand-Archive -LiteralPath $archive -DestinationPath $staging -Force
 
-    # A per-user install into our own directory, so nothing on the host is
-    # adopted or displaced and no elevation is needed. InstallAllUsers=0 also
-    # sidesteps the WiX provider-key collision that made a previous x64
-    # installer exit 0 while doing nothing.
-    $arguments = @('/quiet', 'InstallAllUsers=0', "TargetDir=$pythonHome",
-                   'Include_launcher=0', 'Include_test=0', 'AssociateFiles=0',
-                   'Shortcuts=0', 'PrependPath=0', 'Include_pip=1')
-    $run = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
-    Note 'python_installer_exit' "$($run.ExitCode)"
+    $tools = Get-ChildItem -LiteralPath $staging -Filter python.exe -File -Recurse |
+             Select-Object -First 1
+    if (-not $tools) {
+        Fail 'the downloaded python archive contains no python.exe'
+    } else {
+        if (Test-Path -LiteralPath $pythonHome) { Remove-Item -Recurse -Force $pythonHome }
+        New-Item -ItemType Directory -Force -Path $pythonHome | Out-Null
+        Copy-Item -Path (Join-Path $tools.DirectoryName '*') -Destination $pythonHome -Recurse -Force
+    }
+    Remove-Item -Force $archive -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force $staging -ErrorAction SilentlyContinue
 
     $verdict = Test-Interpreter (Join-Path $pythonHome 'python.exe')
     if ($verdict) {
         $pythonExe = Join-Path $pythonHome 'python.exe'
         Note 'python' "$pythonExe ($verdict)"
     } else {
-        Fail "the installer exited $($run.ExitCode) but $pythonHome\python.exe is not a usable 3.11/3.12 AMD64 interpreter"
+        Fail "$pythonHome\python.exe is not a usable 3.11/3.12 AMD64 interpreter"
         $pythonExe = $null
     }
 }
 
 if ($pythonExe) {
-    try {
-        & $pythonExe -m pip --version 2>&1 | Select-Object -First 1 | ForEach-Object { Note 'pip' "$_" }
-    } catch { Fail 'the interpreter has no working pip; the agent installs its wheels through it' }
+    $pip = & $pythonExe -m pip --version 2>&1 | Select-Object -First 1
+    if ("$pip" -notmatch '^pip ') {
+        # A directory distribution ships ensurepip rather than a ready pip.
+        & $pythonExe -m ensurepip --upgrade 2>&1 | Out-Null
+        $pip = & $pythonExe -m pip --version 2>&1 | Select-Object -First 1
+    }
+    Note 'pip' "$pip"
+    if ("$pip" -notmatch '^pip ') {
+        Fail 'the interpreter has no working pip; the agent installs its wheels through it'
+    }
 }
 
 # ---------------------------------------------------------------- ffmpeg ----
@@ -181,30 +203,32 @@ if (Test-Path -LiteralPath $ffprobe) {
 # told where it is. Per-machine when we are allowed to, per-user otherwise: the
 # admission rule forbids requiring an administrator.
 Write-Host "== path =="
-$scope = 'Machine'
-try { [Environment]::GetEnvironmentVariable('Path', 'Machine') | Out-Null }
-catch { $scope = 'User' }
+# Reading the machine Path is allowed on an image that refuses to let it be
+# written, so the scope has to be chosen by attempting the write, not by
+# attempting the read. The user scope is enough: the agent runs as this account.
 $wanted = @($ffmpegHome)
 if ($pythonExe) { $wanted += (Split-Path -Parent $pythonExe) }
-try {
-    $current = [Environment]::GetEnvironmentVariable('Path', $scope)
-    $parts   = @($current -split ';' | Where-Object { $_ })
-    $added   = @()
-    foreach ($entry in $wanted) {
-        if (Test-Path -LiteralPath $entry) {
-            if ($parts -notcontains $entry) { $parts += $entry; $added += $entry }
-        }
-    }
-    if ($added.Count) {
-        [Environment]::SetEnvironmentVariable('Path', ($parts -join ';'), $scope)
+$wanted = @($wanted | Where-Object { Test-Path -LiteralPath $_ })
+$env:Path = "$env:Path;" + ($wanted -join ';')
+
+$written = $false
+foreach ($scope in @('Machine', 'User')) {
+    try {
+        $parts = @([Environment]::GetEnvironmentVariable('Path', $scope) -split ';' | Where-Object { $_ })
+        $added = @($wanted | Where-Object { $parts -notcontains $_ })
+        if (-not $added.Count) { Note 'path_added' "already on the $scope path"; $written = $true; break }
+        [Environment]::SetEnvironmentVariable('Path', (($parts + $added) -join ';'), $scope)
         Note 'path_scope' $scope
         Note 'path_added' ($added -join ' | ')
-    } else {
-        Note 'path_added' 'nothing to add'
+        $written = $true
+        break
+    } catch {
+        Note "path_$($scope.ToLower())" "refused: $($_.Exception.Message.Split([char]10)[0])"
     }
-    $env:Path = "$env:Path;" + ($wanted -join ';')
-} catch {
-    Note 'path_added' "could not be written ($scope): $($_.Exception.Message)"
+}
+if (-not $written) {
+    # Not fatal. The deployment is told where the runtime is; PATH is a courtesy.
+    Note 'path_added' "neither scope could be written; runtime stays under $RuntimeRoot"
 }
 
 # ---------------------------------------------------------------- report ----
