@@ -33,7 +33,7 @@ IDEMPOTENCE
 #>
 param(
     [string]$RuntimeRoot = 'C:\MosaicRuntime',
-    [string]$PythonUrl   = 'https://globalcdn.nuget.org/packages/python.3.11.9.nupkg',
+    [string]$PythonUrl   = 'https://api.nuget.org/v3-flatcontainer/python/3.11.9/python.3.11.9.nupkg',
     [string]$FfmpegUrl   = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
     [string]$Report      = "$env:TEMP\mosaic-provision.json",
     [switch]$Force
