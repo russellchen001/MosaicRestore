@@ -1,8 +1,8 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
-v1.0.0 remains published as a source release and its tag/history must not be deleted or rewritten. Local Computer, Core/Desktop, the P3 long-video production workflow, the Local quality gate, and the Lada/CUDA cloud infrastructure lifecycle are genuinely accepted. The formal Jasna Cloud Compute and Agent Cloud Computer products are not complete.
-No cloud resource may be started during this documentation closure. AI-OS is unchanged. Further implementation and paid testing are paused while Codex quota is approximately 17%.
+v1.0.0 remains published as a source release and its tag/history must not be deleted or rewritten. Accepted: Local Computer, Core/Desktop, the P3 long-video production workflow, the Local quality gate, and the Lada/CUDA cloud infrastructure lifecycle. **As of 2026-10-05 both formal Jasna cloud products, Cloud Compute and Agent Cloud Computer, have also passed real end-to-end runs** on AirGPU Windows Tesla T4 at smoke scale; see the two PASS sections under P5 Verification. AI-OS is unchanged.
+AirGPU `airgpu-35d4bba7ac` is Off with credit US$8.74. Paid windows are allowed; the working method is under "How to run a paid window" below.
 
 ## Authoritative Current Status
 - Product definition is locked: Local Computer = Lada/MPS; formal Cloud Compute = headless Jasna/NVIDIA/TensorRT; formal Agent Cloud Computer = GUI Agent → Jasna/NVIDIA/TensorRT.
@@ -12,15 +12,16 @@ No cloud resource may be started during this documentation closure. AI-OS is unc
 - P5 RunPod Linux/Lada CUDA genuinely proved provider contract behavior, visible GUI-agent launch, session reconnect, stable PID/start time and progress continuity, cancellation/process exit, download, SHA-256 and ffprobe. Those results remain authoritative infrastructure evidence only.
 - Formal Cloud Compute **PASSED a real E2E on 2026-10-05**: Mosaic Core → HTTPS relay → AirGPU Windows Tesla T4 → Jasna v0.10.0 with TensorRT fp16 engines → download → SHA-256 → ffprobe. See "Cloud Compute E2E — PASS" below. The evidence is a 14-frame smoke clip; it proves the capability, not long-video throughput.
 - Formal Agent Cloud Computer **PASSED a real E2E on 2026-10-05**: GUI agent → visible conhost PowerShell on AirGPU Windows Tesla T4 → Jasna v0.10.0 TensorRT → live session reconnect → download → SHA-256 → ffprobe, plus GUI cancellation with parent/child exit. See "Agent Cloud Computer E2E — PASS" below.
-- Both formal cloud products now have real smoke-scale E2E evidence. Long-video cloud throughput remains unmeasured. v1.0.0 as published still predates this acceptance. The release's Local/Core/Desktop/long-video and infrastructure capabilities remain valid; formal Jasna Cloud/Agent Cloud acceptance remains incomplete.
+- Both formal cloud products now have real smoke-scale E2E evidence. Long-video cloud throughput remains unmeasured. v1.0.0 as published still predates this acceptance.
 
-## Why We Are Blocked / Why Previous Attempts Failed
-- The earlier status incorrectly promoted Lada/CUDA infrastructure acceptance into cloud product completion. That caused an incorrect completion claim and avoidable Codex usage and cloud cost.
-- Recent Windows attempts do not show that Jasna itself is unworkable. They show that preflight and acceptance design were not closed before opening paid windows: remote input and lock-screen behavior, deployment transfer and unattended bootstrap were not fully verified offline.
-- Paid-window time was then spent debugging Moonlight/remote interaction and transfer/deployment prerequisites. The critical restore chain never reached actual Jasna processing, so both formal Jasna E2E paths remain incomplete rather than failed runtime validations.
-- The user has already spent approximately two days, about US$20 in AirGPU/RunPod-scale cloud cost, and substantial Codex quota. Open-ended experimentation is no longer allowed. With about 17% Codex quota remaining, implementation and paid testing must pause until quota recovers; no paid resource may be started.
-- After quota recovery, the shortest path is to reuse the previously successful AirGPU Windows/T4 Jasna environment. First close the headless runner, GUI runner, deployment transfer, remote input/lock-screen/session behavior, evidence collection and one-click acceptance entirely offline. Then use one bounded paid window to complete both real Jasna E2Es.
-- The paid acceptance must retain real restored output, download, SHA-256 and ffprobe for both paths; Agent Cloud must additionally retain reconnect, PID/start-time/progress continuity, cancellation and process-exit evidence. Do not return to the RunPod Linux Jasna 0% route and do not substitute Lada/CUDA for the formal cloud backend.
+## How to run a paid window (what worked on 2026-10-05)
+- The user clicks AirGPU Start and Stop; the assistant's clicks on them are blocked by the permission classifier. The assistant can read the dashboard (status, credit) in Chrome.
+- On Windows, paste one line. `<SHA>` is the commit to deploy; pin it so the raw.githubusercontent CDN cannot serve stale files:
+  `$r="https://raw.githubusercontent.com/russellchen001/MosaicRestore/<SHA>"; curl.exe -fsSL -o "$env:TEMP\wb.ps1" "$r/verify/window_bootstrap.ps1"; powershell -ExecutionPolicy Bypass -File "$env:TEMP\wb.ps1" -RawBase $r -Token <24+ chars>`
+  Expect two `overlaid` lines and then `PASS P5 deployment: https://….trycloudflare.com`. Keep Moonlight connected and the desktop visible; Agent Cloud drives a real window.
+- On the Mac: Cloud Compute runs with `bash verify/start_cloud_compute.sh <endpoint> <token>`. Agent Cloud runs with `python3 verify/run_p5_real.py --connection <file with endpoint, token, expires_utc> --output <new dir> --core core/target/release/mosaic-core --minutes 10 --cancel-if-time`.
+- When something fails, fix it in place: patch, push, and fetch the patched file by commit SHA into the deployment directory (`$d=(gci $env:TEMP -Directory -Filter 'MosaicP5-*' | sort LastWriteTime | select -Last 1).FullName+'\deploy'`). Then rerun `deploy_windows_agent.ps1 -Token … -Minutes 25` from `$d`. Stop the machine only on success or a real dead end. Windows costs about US$2.31/hour with VAT, and a full acceptance window took about 15 minutes.
+- History: earlier windows were stopped at the first failure, before any of them ran Jasna. Every failure found on 2026-10-05 was PowerShell or launch glue that had never run end to end on Windows, never Jasna or the host. Do not return to the RunPod Linux Jasna 0% route, and do not substitute Lada/CUDA for the formal cloud backend.
 
 ## Product
 Local-first AI video mosaic restoration with two product surfaces:
@@ -322,8 +323,7 @@ Linux desktop readiness now requires a real VncAuth-authenticated noVNC/WebSocke
 - RunPod was not started for this gate. Incremental RunPod cost is US$0.00; the previously accepted P5 instances remain recorded as stopped at US$0.00/hour.
 
 ## Remaining Release Blockers
-- Formal Cloud Compute: real E2E accepted on 2026-10-05 (smoke clip). A long-video cloud run is still unmeasured.
-- Formal Agent Cloud Computer: real E2E accepted on 2026-10-05 (smoke clip), including reconnect and GUI cancellation with process exit.
-- These are MosaicRestore-side product blockers. They are not closed by the accepted Linux/Lada CUDA infrastructure lifecycle and must be completed before AI-OS v2.0 host wiring can treat all three providers as accepted.
+- No functional blocker remains for the three providers. Cloud Compute and Agent Cloud Computer were accepted on 2026-10-05 at smoke scale (14- and 48-frame clips), and Agent Cloud included reconnect and GUI cancellation with process exit. AI-OS v2.0 host wiring may treat all three providers as accepted.
+- Open, non-blocking: (1) a long-video cloud run, for throughput and cost per minute of video; (2) rebuild the offline bundle so it already contains today's `deploy_windows_agent.ps1` and `windows_gui_agent.py` instead of relying on runtime overlays; (3) the US$0.84 credit gap seen before the first window (US$10.51 expected, US$9.67 shown) was not reconciled.
 - The existing source release remains published; do not delete its tag or rewrite history. External app distribution separately requires a valid Apple Developer signing identity and notarization, and the current app must not be presented as a formally distributed macOS build.
 - The AI-OS repository was not modified.
