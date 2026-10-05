@@ -45,16 +45,46 @@ Note 'arch' $env:PROCESSOR_ARCHITECTURE
 if ($env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { Block "architecture $env:PROCESSOR_ARCHITECTURE; the bundled wheels and cloudflared are win_amd64" }
 
 Write-Host '== gpu =='
+# The adapter is asked for in three independent ways, because a single negative
+# answer from nvidia-smi has already been mistaken for an absent GPU: on a
+# streaming host the driver can be present and working (NVENC is carrying the
+# stream) while nvidia-smi.exe simply is not on PATH.
+$nvDisplay = @(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue |
+               Where-Object { $_.Name -match 'NVIDIA|Tesla|TU104' })
+Note 'gpu_device' ($(if ($nvDisplay.Count) {
+    ($nvDisplay | ForEach-Object { "$($_.Name) [$($_.Status)] drv $($_.DriverVersion)" }) -join ' | '
+} else { 'none in Win32_VideoController' }))
+
+$smiPath = (Get-Command nvidia-smi.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+if (-not $smiPath) {
+    $smiPath = @("$env:SystemRoot\System32\nvidia-smi.exe",
+                 "$env:ProgramFiles\NVIDIA Corporation\NVSMI\nvidia-smi.exe",
+                 "$env:ProgramW6432\NVIDIA Corporation\NVSMI\nvidia-smi.exe") |
+               Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+}
+Note 'nvidia_smi_path' ($(if ($smiPath) { $smiPath } else { 'NOT FOUND' }))
+
 $smi = $null
-try {
-    $smi = & nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>&1 | Select-Object -First 1
-} catch { $smi = $null }
-if (-not $smi -or $LASTEXITCODE -ne 0) {
-    Block 'nvidia-smi did not report a GPU'
-    Note 'gpu' 'unavailable'
-} else {
+if ($smiPath) {
+    $global:LASTEXITCODE = 0
+    try {
+        $smi = & $smiPath --query-gpu=name,driver_version,memory.total --format=csv,noheader 2>&1 |
+               Select-Object -First 1
+    } catch { $smi = $null }
+    if ($LASTEXITCODE -ne 0) { Note 'nvidia_smi_exit' "$LASTEXITCODE"; $smi = $null }
+}
+
+if ($smi) {
     Note 'gpu' "$smi"
     if ("$smi" -notmatch 'T4') { Note 'gpu_warning' 'not a Tesla T4; the pinned TensorRT engines were built for T4' }
+} elseif ($nvDisplay.Count) {
+    # Driver and adapter are there; only the query tool answered badly. TensorRT
+    # loads through the driver, not through nvidia-smi, so this is a warning.
+    Note 'gpu' 'present per Win32_VideoController; nvidia-smi unavailable'
+    Note 'gpu_warning' 'nvidia-smi could not be queried; GPU presence inferred from the display adapter'
+} else {
+    Block 'no NVIDIA adapter in Win32_VideoController and nvidia-smi unavailable'
+    Note 'gpu' 'unavailable'
 }
 
 Write-Host '== jasna runtime =='
