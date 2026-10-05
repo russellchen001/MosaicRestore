@@ -11,7 +11,9 @@ param(
     [string]$Url = 'https://github.com/russellchen001/MosaicRestore/releases/download/jasna-cloud-offline-20261005/mosaic-jasna-airgpu-v0.10.0-v3.zip',
     [string]$Sha256 = '9578bdeb232683e1d20b2cc74e3130d5217c5b7ba211dbfe3bfd2c4d83f42030',
     [string[]]$Required = @('deploy_windows_agent.cmd','deploy_windows_agent.ps1','deploy_windows_jasna.cmd',
-                            'windows_gui_agent.py','cloudflared.exe','SHA256.json','jasna-airgpu-v0.10.0.json','wheels')
+                            'windows_gui_agent.py','cloudflared.exe','SHA256.json','jasna-airgpu-v0.10.0.json','wheels'),
+    [string]$RawBase = 'https://raw.githubusercontent.com/russellchen001/MosaicRestore/master',
+    [string[]]$Overlay = @('adapters/deploy_windows_agent.ps1')
 )
 $ErrorActionPreference = 'Stop'
 $unpack = $null
@@ -34,6 +36,18 @@ try {
     Receive-Job $unpack -ErrorAction Stop | Out-Null
     foreach ($file in $Required) {
         if (-not (Test-Path -LiteralPath (Join-Path $destination $file))) { throw "Bundle missing $file" }
+    }
+    # The published archive is a snapshot taken before the deployment defects were
+    # found. Re-publishing a 52MB bundle to carry a 10KB fix is the slower, more
+    # error-prone option, so the current script is overlaid here instead. This is
+    # explicit rather than silent: a window must never run a deployment whose
+    # provenance nobody can state.
+    foreach ($overlay in $Overlay) {
+        $url = "$RawBase/$overlay"
+        $leaf = [IO.Path]::GetFileName($overlay)
+        & curl.exe -fL --connect-timeout 10 --max-time 30 --retry 0 -sS -o (Join-Path $destination $leaf) $url
+        if ($LASTEXITCODE -ne 0) { throw "could not overlay $leaf from $url" }
+        Write-Host "  overlaid $leaf from $RawBase"
     }
     Write-Host "PASS P5 first transfer: hash verified; deployment directory $destination"
     Write-Host 'NEXT: run deploy_windows_jasna.cmd (or deploy_windows_agent.cmd with verified -Application/-Ffprobe/-Python paths); do not install a missing runtime.'

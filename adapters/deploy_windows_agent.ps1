@@ -3,6 +3,7 @@ param(
     [string]$Ffprobe = 'C:\Jasna\ffprobe.exe',
     [string]$CommandTemplate = '',
     [string]$Python = '',
+    [string]$Token = '',
     [int]$Minutes = 25
 )
 $ErrorActionPreference = 'Stop'
@@ -95,11 +96,21 @@ try {
     $python = "$run\venv\Scripts\python.exe"
     & $python -m pip install --no-index --find-links "$PSScriptRoot\wheels\$abi" pywinauto Pillow pywin32
     if ($LASTEXITCODE -ne 0) { throw 'Offline GUI dependency installation failed' }
-    $tokenBytes = New-Object byte[] 32
-    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    $rng.GetBytes($tokenBytes)
-    $rng.Dispose()
-    $env:MOSAIC_P5_TOKEN = [Convert]::ToBase64String($tokenBytes)
+    # A token generated here has to be carried back to the controlling machine,
+    # and the only channel is a remote-desktop clipboard that has already proved
+    # unreliable in this project. Letting the caller supply one it already holds
+    # means only the relay URL travels back. A supplied token is still required to
+    # be long enough to be worth having.
+    if ($Token) {
+        if ($Token.Length -lt 24) { throw 'A supplied token must be at least 24 characters' }
+        $env:MOSAIC_P5_TOKEN = $Token
+    } else {
+        $tokenBytes = New-Object byte[] 32
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $rng.GetBytes($tokenBytes)
+        $rng.Dispose()
+        $env:MOSAIC_P5_TOKEN = [Convert]::ToBase64String($tokenBytes)
+    }
     $config = @{
         root="$run\jobs"; application_path=$Application; ffprobe_path=$Ffprobe
         command_template=$CommandTemplate; token_env='MOSAIC_P5_TOKEN'

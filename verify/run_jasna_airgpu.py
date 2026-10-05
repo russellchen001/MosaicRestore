@@ -62,19 +62,28 @@ def main(args):
     run([str(ROOT / "adapters/http_jasna_cloud_adapter.py"), "evidence", "--profile", "jasna",
          "--job", session_files[0].stem, "--output", str(args.output / "cloud-compute-evidence.zip")],
         env=env, timeout=30, log=args.output / "cloud-evidence.log")
-    run(["python3", str(ROOT / "verify/run_p5_real.py"), "--connection", str(args.connection),
-         "--output", str(args.output / "agent-cloud-computer"), "--core", str(args.core),
-         "--minutes", "6"], timeout=420, log=args.output / "agent-cloud-computer.log")
+    # Closing one product at a time is a budget decision, not a weaker standard:
+    # the Cloud Compute chain above is complete on its own. What must never happen
+    # is a report that implies both ran when only one did.
+    if args.skip_agent_cloud:
+        agent_cloud = "NOT RUN (--skip-agent-cloud)"
+    else:
+        run(["python3", str(ROOT / "verify/run_p5_real.py"), "--connection", str(args.connection),
+             "--output", str(args.output / "agent-cloud-computer"), "--core", str(args.core),
+             "--minutes", "6"], timeout=420, log=args.output / "agent-cloud-computer.log")
+        agent_cloud = "agent-cloud-computer/report.json"
     report = {
         "result": "PASS",
         "runtime": "Jasna v0.10.0 Windows NVIDIA TensorRT",
+        "cloud_compute": "accepted",
         "cloud_compute_sha256": hashlib.sha256(cloud_output.read_bytes()).hexdigest(),
-        "agent_cloud_report": "agent-cloud-computer/report.json",
+        "agent_cloud_computer": agent_cloud,
         "elapsed_seconds": round(time.monotonic() - started, 1),
         "paid_resource_started_by_script": False,
     }
     (args.output / "report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    print("PASS Jasna Cloud Compute + Agent Cloud Computer — stop AirGPU immediately")
+    scope = "Cloud Compute" if args.skip_agent_cloud else "Cloud Compute + Agent Cloud Computer"
+    print(f"PASS Jasna {scope} - stop AirGPU immediately")
 
 
 if __name__ == "__main__":
@@ -83,6 +92,8 @@ if __name__ == "__main__":
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--input", type=Path, default=ROOT / "benchmark/samples/p1_lada_smoke.mp4")
     parser.add_argument("--core", type=Path, default=ROOT / "core/target/release/mosaic-core")
+    parser.add_argument("--skip-agent-cloud", action="store_true",
+                        help="close Cloud Compute only; Agent Cloud Computer stays NOT RUN")
     try:
         main(parser.parse_args())
     except Exception as error:
