@@ -13,11 +13,19 @@ resource, and it does not begin restoration; the controlling machine does that
 once the relay endpoint below is known.
 #>
 param(
-    [Parameter(Mandatory = $true)][string]$Token,
-    [int]$Minutes = 20,
+    [string]$Token = '',
+    [int]$Minutes = 25,
     [string]$RawBase = 'https://raw.githubusercontent.com/russellchen001/MosaicRestore/master'
 )
 $ErrorActionPreference = 'Stop'
+
+# A mandatory parameter prompts in clear text, and a token typed there ended up
+# in a screenshot. Read it masked instead.
+if (-not $Token) {
+    $secure = Read-Host 'Token (hidden)' -AsSecureString
+    $Token = [Runtime.InteropServices.Marshal]::PtrToStringBSTR(
+        [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+}
 
 function Fetch([string]$name) {
     # The CDN in front of raw.githubusercontent caches per edge for minutes. A
@@ -45,7 +53,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ''
 Write-Host '################ STAGE 2/3  transfer #################'
 $receive = Fetch 'receive-p5.ps1'
-$transcript = & $receive
+# The receiver reports with Write-Host, which writes to the information stream
+# (6), not the output stream. Capturing only the output stream left this empty
+# on a transfer that had passed, and the window was stopped over a parse.
+$transcript = @(& $receive 6>&1 | ForEach-Object { "$_" })
 $transcript | ForEach-Object { Write-Host $_ }
 if ($LASTEXITCODE -ne 0) { Write-Host ''; Write-Host 'STOP THE MACHINE NOW. The bundle did not transfer.'; exit 1 }
 $line = $transcript | Where-Object { $_ -match 'deployment directory (.+)$' } | Select-Object -Last 1

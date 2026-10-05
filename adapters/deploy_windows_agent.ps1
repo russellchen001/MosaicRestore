@@ -44,7 +44,10 @@ try {
     }
     $jasnaRoot = Split-Path -Parent $Application
     if (-not (Test-Path -LiteralPath $Ffprobe -PathType Leaf)) {
-        $Ffprobe = @("$jasnaRoot\ffprobe.exe", "$jasnaRoot\ffmpeg\bin\ffprobe.exe") |
+        # The provisioner installs ffprobe under MosaicRuntime, and its PATH entry
+        # is not visible to a session that was already open when it ran.
+        $Ffprobe = @("$jasnaRoot\ffprobe.exe", "$jasnaRoot\ffmpeg\bin\ffprobe.exe",
+                     "$env:SystemDrive\MosaicRuntime\ffmpeg\bin\ffprobe.exe") |
             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
         if (-not $Ffprobe) { $Ffprobe = (Get-Command ffprobe.exe -ErrorAction SilentlyContinue).Source }
     }
@@ -65,24 +68,35 @@ try {
     # not match. Both produce a deployment failure inside a billed window for a
     # machine that actually has a usable Python. So an explicit path wins, and the
     # fallback inspects every candidate instead of trusting the first.
+    #
+    # The provisioned interpreter is listed before PATH, as the preflight does,
+    # and the probe is the preflight's: no embedded quotes, because Windows drops
+    # them on the way to a native executable. It runs with errors non-terminating,
+    # because under 'Stop' the Store stub's stderr became a thrown error that ended
+    # the whole deployment before the real interpreter was ever tried.
     $candidates = @()
     if ($Python) { $candidates += $Python }
+    $candidates += "$env:SystemDrive\MosaicRuntime\python311\python.exe"
     $candidates += @(Get-Command python.exe -All -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+    $probeSource = 'import sys,platform;print(sys.version_info[0],sys.version_info[1],platform.machine())'
     $python = $null
     $abi = $null
     $rejected = @()
     foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
         if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { continue }
-        $probe = & $candidate -c 'import sys,platform; print(str(sys.version_info.major)+str(sys.version_info.minor)+" "+platform.machine())' 2>&1
-        if ($LASTEXITCODE -ne 0) { $rejected += "${candidate}: not a working interpreter"; continue }
-        $parts = "$probe".Trim().Split(' ')
-        if ($parts.Count -ne 2) { $rejected += "${candidate}: unreadable version probe"; continue }
-        if ($parts[0] -notin @('311','312')) { $rejected += "${candidate}: Python $($parts[0])"; continue }
+        $ErrorActionPreference = 'Continue'
+        $probe = & $candidate -c $probeSource 2>&1
+        $code = $LASTEXITCODE
+        $ErrorActionPreference = 'Stop'
+        if ($code -ne 0) { $rejected += "${candidate}: not a working interpreter"; continue }
+        $parts = (@($probe) -join ' ').Trim().Split(' ')
+        if ($parts.Count -ne 3 -or $parts[0] -ne '3') { $rejected += "${candidate}: unreadable version probe"; continue }
+        if ($parts[1] -notin @('11','12')) { $rejected += "${candidate}: Python 3.$($parts[1])"; continue }
         # The bundled wheels are win_amd64. An ARM64 interpreter would fail the
         # offline install several steps later with a far less obvious message.
-        if ($parts[1] -ne 'AMD64') { $rejected += "${candidate}: $($parts[1]) architecture"; continue }
+        if ($parts[2] -ne 'AMD64') { $rejected += "${candidate}: $($parts[2]) architecture"; continue }
         $python = $candidate
-        $abi = $parts[0]
+        $abi = '3' + $parts[1]
         break
     }
     if (-not $python) {

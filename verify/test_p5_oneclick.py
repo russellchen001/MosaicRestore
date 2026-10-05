@@ -241,5 +241,24 @@ class OneclickTests(unittest.TestCase):
             worker.join(timeout=2)
 
 
+class WindowScriptTextTests(unittest.TestCase):
+    """PowerShell cannot run here, so the two defects of the 2026-10-05 window are pinned by text."""
+
+    def test_deploy_probes_provisioned_python_without_dying_on_the_store_stub(self):
+        script = (ROOT / "adapters/deploy_windows_agent.ps1").read_text(encoding="utf-8")
+        probe = script.index("$probe = & $candidate")
+        self.assertLess(script.index(r"MosaicRuntime\python311\python.exe"), script.index("Get-Command python.exe -All"))
+        self.assertIn("$ErrorActionPreference = 'Continue'", script[probe - 120:probe])
+        self.assertIn("$ErrorActionPreference = 'Stop'", script[probe:probe + 160])
+        source = next(line for line in script.splitlines() if line.strip().startswith("$probeSource ="))
+        self.assertEqual(source.count('"'), 0)
+        self.assertIn(r"MosaicRuntime\ffmpeg\bin\ffprobe.exe", script)
+
+    def test_bootstrap_captures_the_receivers_information_stream(self):
+        script = (ROOT / "verify/window_bootstrap.ps1").read_text(encoding="utf-8")
+        self.assertIn("& $receive 6>&1", script)
+        self.assertIn("-AsSecureString", script)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
