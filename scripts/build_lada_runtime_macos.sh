@@ -64,9 +64,40 @@ mkdir -p \
   "$OUT/_internal/model_weights" \
   "$OUT/THIRD_PARTY_NOTICES"
 
+ACCURATE_NAME="lada_mosaic_detection_model_v4_accurate.pt"
+ACCURATE_SHA="c244d7e49d8f88e264b8dc15f91fb21f5908ad8fb6f300b7bc88462d0801bc1f"
+MODEL_CACHE="$ROOT/work/model-cache"
+ACCURATE_CACHE="$MODEL_CACHE/$ACCURATE_NAME"
+
+mkdir -p "$MODEL_CACHE"
+
+if [ ! -f "$ACCURATE_CACHE" ]; then
+    echo "Downloading official Lada v4-accurate detector..."
+
+    curl -L \
+      "https://huggingface.co/ladaapp/lada/resolve/main/$ACCURATE_NAME?download=true" \
+      -o "$ACCURATE_CACHE" || exit 1
+fi
+
+ACTUAL_ACCURATE_SHA="$(
+  shasum -a 256 "$ACCURATE_CACHE" |
+  awk '{print $1}'
+)"
+
+if [ "$ACTUAL_ACCURATE_SHA" != "$ACCURATE_SHA" ]; then
+    echo "FAIL — v4-accurate checksum mismatch"
+    echo "expected=$ACCURATE_SHA"
+    echo "actual=$ACTUAL_ACCURATE_SHA"
+    exit 1
+fi
+
 cp \
   "$LADA/model_weights/lada_mosaic_detection_model_v4_fast.pt" \
   "$OUT/_internal/model_weights/"
+
+cp \
+  "$ACCURATE_CACHE" \
+  "$OUT/_internal/model_weights/$ACCURATE_NAME"
 
 cp \
   "$LADA/model_weights/lada_mosaic_restoration_model_generic_v1.2.pth" \
@@ -79,6 +110,15 @@ cp \
 cp \
   "$LADA/model_weights/lada_mosaic_detection_model_v4_fast.pt.license" \
   "$OUT/THIRD_PARTY_NOTICES/lada_mosaic_detection_model_v4_fast.pt.license"
+
+if [ -f "$LADA/model_weights/lada_mosaic_detection_model_v4_accurate.pt.license" ]; then
+    cp \
+      "$LADA/model_weights/lada_mosaic_detection_model_v4_accurate.pt.license" \
+      "$OUT/THIRD_PARTY_NOTICES/lada_mosaic_detection_model_v4_accurate.pt.license"
+else
+    echo "FAIL — v4-accurate model license file missing"
+    exit 1
+fi
 
 cp \
   "$LADA/model_weights/lada_mosaic_restoration_model_generic_v1.2.pth.license" \
@@ -110,7 +150,8 @@ cat > "$OUT/runtime.json" <<EOF
   "source_commit": "$COMMIT",
   "platform": "macOS",
   "architecture": "arm64",
-  "detector": "lada_mosaic_detection_model_v4_fast.pt",
+  "detector_default": "lada_mosaic_detection_model_v4_accurate.pt",
+  "detector_fast": "lada_mosaic_detection_model_v4_fast.pt",
   "restorer": "lada_mosaic_restoration_model_generic_v1.2.pth"
 }
 EOF

@@ -153,6 +153,13 @@ private struct RestoreView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+
+                if let detail = model.progressDetail {
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
             }
         }
     }

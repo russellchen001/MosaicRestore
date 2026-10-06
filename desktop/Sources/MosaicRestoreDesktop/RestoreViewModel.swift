@@ -22,6 +22,7 @@ final class RestoreViewModel: ObservableObject {
     @Published var cloudEstimate: String?
     @Published var progress = 0.0
     @Published var status = "Choose a video to begin"
+    @Published var progressDetail: String?
     @Published var isRunning = false
     @Published var errorMessage: String?
     @Published var isAdvancedExpanded = false
@@ -47,6 +48,10 @@ final class RestoreViewModel: ObservableObject {
     private var process: Process?
     private var cancelFile: URL?
     private var outputBuffer = ""
+
+    private var currentSegment: Int?
+    private var totalSegments: Int?
+    private var resumedSegments: Int?
 
     private let defaults = UserDefaults.standard
     private let outputDirectoryKey = "MosaicRestore.outputDirectory"
@@ -566,6 +571,10 @@ final class RestoreViewModel: ObservableObject {
             task.environment = environment
 
             outputBuffer = ""
+            currentSegment = nil
+            totalSegments = nil
+            resumedSegments = nil
+            progressDetail = nil
 
             outputPipe.fileHandleForReading.readabilityHandler = {
                 [weak self] handle in
@@ -1089,7 +1098,10 @@ final class RestoreViewModel: ObservableObject {
     }
 
     private func consume(_ text: String) {
-        outputBuffer += text
+        // tqdm updates the same terminal line with carriage returns.
+        // Normalize them so the GUI receives live Lada progress rather
+        // than waiting until the provider emits a final newline.
+        outputBuffer += text.replacingOccurrences(of: "\r", with: "\n")
 
         let lines =
             outputBuffer.split(
@@ -1100,12 +1112,26 @@ final class RestoreViewModel: ObservableObject {
         outputBuffer = lines.last.map(String.init) ?? ""
 
         for line in lines.dropLast().map(String.init) {
+            consumeStructuredProgress(line)
+
             if let percent = ProgressLineParser.percent(from: line) {
                 progress = Double(percent) / 100
             }
 
             if let friendly = ProgressLineParser.friendlyStatus(from: line) {
-                status = friendly
+                if friendly == "Restoring video…",
+                   let currentSegment,
+                   let totalSegments {
+                    status =
+                        "Processing segment \(currentSegment) of \(totalSegments)…"
+                } else if friendly == "Resuming previous work…",
+                          let resumedSegments,
+                          let totalSegments {
+                    status =
+                        "Resuming previous restore — \(resumedSegments) of \(totalSegments) segments already complete"
+                } else {
+                    status = friendly
+                }
             }
 
             if let estimate = ProgressLineParser.cloudEstimate(from: line) {
@@ -1120,6 +1146,138 @@ final class RestoreViewModel: ObservableObject {
                     )
             }
         }
+    }
+
+    private func consumeStructuredProgress(_ line: String) {
+        if line.hasPrefix("MOSAIC_RESUME ") {
+            let values = progressValues(from: line)
+
+            if let completed = Int(values["completed"] ?? ""),
+               let total = Int(values["total"] ?? "") {
+                resumedSegments = completed
+                totalSegments = total
+
+                status =
+                    "Resuming previous restore — \(completed) of \(total) segments already complete"
+
+                progressDetail =
+                    "\(total - completed) segments remaining"
+            }
+
+            return
+        }
+
+        if line.hasPrefix("MOSAIC_SEGMENT ") {
+            let values = progressValues(from: line)
+
+            if let current = Int(values["current"] ?? ""),
+               let total = Int(values["total"] ?? "") {
+                currentSegment = current
+                totalSegments = total
+
+                status =
+                    "Processing segment \(current) of \(total)…"
+
+                progressDetail =
+                    "Segment \(current) of \(total)"
+            }
+
+            return
+        }
+
+        guard line.contains("Processing video:") else { return }
+
+        let percent =
+            firstRegexCapture(
+                pattern: #"Processing video:\s*(\d+)%"#,
+                text: line
+            )
+
+        let remaining =
+            firstRegexCapture(
+                pattern: #"Remaining:\s*([^|]+)"#,
+                text: line
+            )?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let speed =
+            firstRegexCapture(
+                pattern: #"Speed:\s*([^|\r\n]+)"#,
+                text: line
+            )?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        var components: [String] = []
+
+        if let percent {
+            components.append("Segment progress: \(percent)%")
+        }
+
+        if let speed, speed != "?" {
+            components.append(speed)
+        }
+
+        if let remaining, remaining != "?" {
+            components.append("~\(remaining) remaining")
+        }
+
+        if !components.isEmpty {
+            progressDetail = components.joined(separator: " · ")
+        }
+    }
+
+    private func progressValues(from line: String) -> [String: String] {
+        Dictionary(
+            uniqueKeysWithValues:
+                line
+                    .split(separator: " ")
+                    .dropFirst()
+                    .compactMap { token in
+                        let parts =
+                            token.split(
+                                separator: "=",
+                                maxSplits: 1
+                            )
+
+                        guard parts.count == 2 else {
+                            return nil
+                        }
+
+                        return (
+                            String(parts[0]),
+                            String(parts[1])
+                        )
+                    }
+        )
+    }
+
+    private func firstRegexCapture(
+        pattern: String,
+        text: String
+    ) -> String? {
+        guard let expression =
+            try? NSRegularExpression(pattern: pattern)
+        else {
+            return nil
+        }
+
+        let range =
+            NSRange(
+                text.startIndex..<text.endIndex,
+                in: text
+            )
+
+        guard let match =
+            expression.firstMatch(
+                in: text,
+                range: range
+            ),
+              match.numberOfRanges > 1,
+              let capture =
+                Range(match.range(at: 1), in: text)
+        else {
+            return nil
+        }
+
+        return String(text[capture])
     }
 
     private func finish(exitCode: Int32) {
@@ -1140,6 +1298,7 @@ final class RestoreViewModel: ObservableObject {
 
             progress = 1
             status = "Complete"
+            progressDetail = nil
             appendLog("Restore completed successfully.")
 
             if revealOutputWhenComplete {
@@ -1150,11 +1309,13 @@ final class RestoreViewModel: ObservableObject {
 
             status = "Cancelled"
             progress = 0
+            progressDetail = nil
             appendLog("Restore cancelled.")
 
         } else {
 
             status = "Restore failed"
+            progressDetail = nil
 
             if errorMessage == nil {
                 errorMessage =

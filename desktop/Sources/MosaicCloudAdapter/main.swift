@@ -116,6 +116,12 @@ final class HTTPResultBox: @unchecked Sendable {
     var error: Error?
 }
 
+final class DownloadResultBox: @unchecked Sendable {
+    var temporaryURL: URL?
+    var response: HTTPURLResponse?
+    var error: Error?
+}
+
 struct Relay {
     let endpoint: URL
     let token: String
@@ -178,34 +184,213 @@ struct Relay {
     }
 
     func upload(path: String, file: URL) {
-        guard let data = try? Data(contentsOf: file) else {
+        guard FileManager.default.isReadableFile(atPath: file.path) else {
             fail("invalid-request", "upload input is missing", 2)
         }
 
-        _ = request(
-            method: "PUT",
-            path: path,
-            body: data,
-            contentType: "application/octet-stream"
+        var request = URLRequest(url: url(path))
+        request.httpMethod = "PUT"
+        request.timeoutInterval = timeout
+        request.setValue(
+            "Bearer \(token)",
+            forHTTPHeaderField: "Authorization"
         )
+        request.setValue(
+            "text/plain",
+            forHTTPHeaderField: "Accept"
+        )
+        request.setValue(
+            "MosaicRestore/1.0",
+            forHTTPHeaderField: "User-Agent"
+        )
+        request.setValue(
+            "application/octet-stream",
+            forHTTPHeaderField: "Content-Type"
+        )
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = HTTPResultBox()
+
+        URLSession.shared.uploadTask(
+            with: request,
+            fromFile: file
+        ) { data, response, error in
+            result.data = data
+            result.response = response as? HTTPURLResponse
+            result.error = error
+            semaphore.signal()
+        }.resume()
+
+        semaphore.wait()
+
+        if let error = result.error {
+            fail(
+                "provider-unavailable",
+                "cloud upload failed: \(error.localizedDescription)",
+                3
+            )
+        }
+
+        guard let response = result.response else {
+            fail(
+                "provider-unavailable",
+                "cloud returned no upload response",
+                3
+            )
+        }
+
+        guard (200..<300).contains(response.statusCode) else {
+            let text =
+                result.data
+                    .flatMap {
+                        String(data: $0, encoding: .utf8)
+                    }
+                ?? ""
+
+            let kind =
+                response.statusCode >= 500
+                    ? "provider-unavailable"
+                    : "execution-failed"
+
+            fail(
+                kind,
+                text.isEmpty
+                    ? "cloud returned HTTP \(response.statusCode)"
+                    : text,
+                4
+            )
+        }
     }
 
     func download(path: String, destination: URL) {
-        let data = request(method: "GET", path: path)
+        var request = URLRequest(url: url(path))
+        request.httpMethod = "GET"
+        request.timeoutInterval = timeout
+        request.setValue(
+            "Bearer \(token)",
+            forHTTPHeaderField: "Authorization"
+        )
+        request.setValue(
+            "MosaicRestore/1.0",
+            forHTTPHeaderField: "User-Agent"
+        )
 
-        let temporary = destination
-            .deletingLastPathComponent()
-            .appendingPathComponent(".\(destination.lastPathComponent).cloud-download")
+        let semaphore = DispatchSemaphore(value: 0)
+        let result = DownloadResultBox()
+
+        URLSession.shared.downloadTask(
+            with: request
+        ) { temporaryURL, response, error in
+            result.response = response as? HTTPURLResponse
+            result.error = error
+
+            if let temporaryURL {
+                let preserved =
+                    FileManager.default.temporaryDirectory
+                        .appendingPathComponent(
+                            "mosaic-cloud-download-\(UUID().uuidString)"
+                        )
+
+                do {
+                    try FileManager.default.moveItem(
+                        at: temporaryURL,
+                        to: preserved
+                    )
+                    result.temporaryURL = preserved
+                } catch {
+                    result.error = error
+                }
+            }
+
+            semaphore.signal()
+        }.resume()
+
+        semaphore.wait()
+
+        if let error = result.error {
+            fail(
+                "provider-unavailable",
+                "cloud download failed: \(error.localizedDescription)",
+                3
+            )
+        }
+
+        guard let response = result.response else {
+            fail(
+                "provider-unavailable",
+                "cloud returned no download response",
+                3
+            )
+        }
+
+        guard (200..<300).contains(response.statusCode) else {
+            if let temporaryURL = result.temporaryURL {
+                try? FileManager.default.removeItem(
+                    at: temporaryURL
+                )
+            }
+
+            let kind =
+                response.statusCode >= 500
+                    ? "provider-unavailable"
+                    : "execution-failed"
+
+            fail(
+                kind,
+                "cloud returned HTTP \(response.statusCode)",
+                4
+            )
+        }
+
+        guard let downloaded = result.temporaryURL else {
+            fail(
+                "output-missing",
+                "cloud returned no downloaded file",
+                4
+            )
+        }
+
+        let temporary =
+            destination
+                .deletingLastPathComponent()
+                .appendingPathComponent(
+                    ".\(destination.lastPathComponent).cloud-download"
+                )
 
         do {
-            try data.write(to: temporary, options: .atomic)
-            if FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.removeItem(at: destination)
-            }
-            try FileManager.default.moveItem(at: temporary, to: destination)
-        } catch {
             try? FileManager.default.removeItem(at: temporary)
-            fail("output-missing", "failed to save cloud output: \(error.localizedDescription)", 4)
+
+            try FileManager.default.moveItem(
+                at: downloaded,
+                to: temporary
+            )
+
+            if FileManager.default.fileExists(
+                atPath: destination.path
+            ) {
+                try FileManager.default.removeItem(
+                    at: destination
+                )
+            }
+
+            try FileManager.default.moveItem(
+                at: temporary,
+                to: destination
+            )
+
+        } catch {
+            try? FileManager.default.removeItem(
+                at: downloaded
+            )
+            try? FileManager.default.removeItem(
+                at: temporary
+            )
+
+            fail(
+                "output-missing",
+                "failed to save cloud output: \(error.localizedDescription)",
+                4
+            )
         }
     }
 }

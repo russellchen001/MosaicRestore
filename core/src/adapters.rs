@@ -59,7 +59,7 @@ impl RestorationProvider for LocalLadaProvider {
                 "--device".into(),
                 "mps".into(),
                 "--mosaic-detection-model".into(),
-                "v4-fast".into(),
+                "v4-accurate".into(),
                 "--mosaic-restoration-model".into(),
                 "basicvsrpp-v1.2".into(),
                 "--encoding-preset".into(),

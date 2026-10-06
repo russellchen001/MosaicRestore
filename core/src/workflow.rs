@@ -198,6 +198,14 @@ pub fn run_production(
         .retain(|index| restored_root.join(chunk_name(*index)).is_file());
     save_checkpoint(&checkpoint_path, &checkpoint)?;
 
+    if !checkpoint.completed.is_empty() {
+        println!(
+            "MOSAIC_RESUME completed={} total={}",
+            checkpoint.completed.len(),
+            chunks.len()
+        );
+    }
+
     for chunk in &chunks {
         if control.cancellation.is_cancelled() {
             return Err(RestoreError::new(
@@ -214,6 +222,13 @@ pub fn run_production(
             );
             continue;
         }
+        println!(
+            "MOSAIC_SEGMENT current={} total={} completed={}",
+            chunk.index + 1,
+            chunks.len(),
+            checkpoint.completed.len()
+        );
+
         let source = source_root.join(chunk_name(chunk.index));
         let restored = restored_root.join(chunk_name(chunk.index));
         if !source.is_file() {

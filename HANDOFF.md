@@ -479,3 +479,146 @@ Acceptance:
 
 The Beta 1 tag and release remain immutable. This fix belongs to
 `v1.0.1-beta.2`.
+
+## v1.0.1 Beta 3
+
+### Beta Quality #2 — residual mosaics after long-video restoration
+
+Severity: High
+
+Status: FIX IN VALIDATION
+
+A completed 2:07:56 Local restoration revealed residual mosaic regions in
+multiple sections of the output.
+
+Five targeted comparison windows were extracted from the original and restored
+video.
+
+The strongest failures were around:
+
+- 01:25:35
+- 01:33:17
+
+Additional review points included:
+
+- 00:35:06
+- 00:43:32
+- 01:07:25
+
+Root-cause investigation compared the existing Lada `v4-fast` detector against
+the official Lada `v4-accurate` detector while keeping the restoration model
+fixed at `basicvsrpp-v1.2`.
+
+Results:
+
+- `v4-accurate` materially reduced detector/mask misses in the strongest
+  failure cases.
+- The additional comparison points showed no clear quality regression or new
+  destructive false-positive behavior.
+- Local processing speed was approximately 14–33% slower depending on scene.
+- The quality gain is accepted as more important than the speed loss for the
+  default MosaicRestore quality path.
+
+Beta 3 changes:
+
+- Local default detector changes from `v4-fast` to `v4-accurate`.
+- The official `v4-accurate` model is bundled in the standalone Local runtime.
+- `v4-fast` remains bundled for future Fast-mode/fallback use.
+- The official v4-accurate model SHA-256 is:
+  `c244d7e49d8f88e264b8dc15f91fb21f5908ad8fb6f300b7bc88462d0801bc1f`.
+- The associated Lada model license notice is distributed with the runtime.
+- Desktop build advances from `103` to `104`.
+
+The Beta 1 and Beta 2 tags/releases remain immutable.
+
+### Beta UX #3 — long-video progress appeared stalled
+
+Severity: Medium
+
+Status: CLOSED
+
+A long Local restore could remain at the same aggregate percentage for a long
+time while a single 300-second segment was still actively processing. The
+underlying Lada process remained healthy, but the desktop UI exposed only the
+coarse aggregate percentage and "Restoring video...", making a healthy task
+look stalled.
+
+The production workflow now emits structured resume/segment metadata. The
+desktop combines that with Lada's live processing output, including segment
+percentage, speed and remaining time when available.
+
+Expected UI examples:
+
+- `Processing segment 21 of 26…`
+- `Segment progress: 43% · 2.4fps · ~36:08 remaining`
+- `Resuming previous restore — 20 of 26 segments already complete`
+
+Checkpoint behavior itself is unchanged.
+
+### Beta High #3 — Cloud large-file memory buffering
+
+Severity: High
+
+Status: CLOSED
+
+The native Cloud adapter previously loaded the entire upload file with
+`Data(contentsOf:)` and buffered the complete download response in `Data`.
+That is unsuitable for MosaicRestore's long-video workload.
+
+The native adapter now uses file-backed URLSession transfer tasks:
+
+- upload: `uploadTask(... fromFile:)`
+- download: `downloadTask(...)`
+
+Small control/status requests continue to use the existing data-task path.
+No paid cloud GPU retest is required for this transport-only change; local
+relay/fixture testing is sufficient before release.
+
+Desktop build advances from 104 to 105.
+
+### v1.0.1 Beta 3 — build 105
+
+Status: RELEASED
+
+Tag: `v1.0.1-beta.3`
+
+Release artifact:
+
+- `MosaicRestore-1.0.1-beta.3-arm64.dmg`
+- SHA-256:
+  `8b87eb48ad2002cb16904409badec0ea5f396b853b4a952b9e6ea5326a451cb1`
+
+Beta 3 includes:
+
+- Local default detector changed from Lada `v4-fast` to `v4-accurate`.
+- `v4-fast` remains bundled.
+- Long-video Desktop progress exposes segment number, checkpoint resume state,
+  segment progress, speed and remaining time when Lada provides it.
+- Native Cloud adapter uses file-backed streaming upload/download rather than
+  buffering complete video files in RAM.
+- App version `1.0.1`, build `105`.
+
+Final validation evidence:
+
+- Core tests: 19 passed, 0 failed.
+- Swift Release build passed.
+- Desktop contract passed.
+- `v4-accurate` model SHA verified:
+  `c244d7e49d8f88e264b8dc15f91fb21f5908ad8fb6f300b7bc88462d0801bc1f`.
+- Core -> bundled Local runtime validation passed on the two Beta quality
+  samples.
+- Checkpoint/resume behavior validation passed.
+- Segment progress/speed/remaining-time behavior validation passed.
+- 256 MiB native Cloud upload/download streaming validation passed with exact
+  SHA preservation.
+- Upload adapter peak RSS: 24,144 KiB (9.2% of fixture size).
+- Download adapter peak RSS: 20,800 KiB (7.9% of fixture size).
+- Final DMG mount/install/signature checks passed.
+- Installed build 105 real Local smoke restore passed.
+- Installed Cloud adapter exists, matches the build copy and passes signature
+  verification.
+
+Beta 1 and Beta 2 remain immutable historical prereleases.
+
+Developer ID signing and notarization remain intentionally outside the Beta
+release gate. Distribution remains ad-hoc signed.
