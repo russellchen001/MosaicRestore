@@ -1,70 +1,297 @@
 # MosaicRestore
 
-MosaicRestore is a local-first AI video mosaic-restoration application for macOS, with an optional provider-neutral cloud execution path for NVIDIA GPUs. It combines a Rust core workflow with a native SwiftUI desktop app while keeping model runtimes replaceable and outside the proprietary core.
+**MosaicRestore — AI Video Mosaic Removal and Restoration for macOS**
+
+MosaicRestore is a local-first AI video mosaic removal and restoration application for macOS.
+
+It is designed for long-form video restoration with Apple Silicon local processing and an optional provider-neutral NVIDIA cloud execution path.
+
+MosaicRestore combines:
+
+- AI video mosaic detection
+- AI video restoration
+- long-video chunk processing
+- checkpoint and resume
+- native macOS SwiftUI desktop UI
+- Apple Silicon / MPS local execution
+- optional NVIDIA / TensorRT cloud execution
+- privacy-first local processing
 
 > [!IMPORTANT]
-> AI restoration produces a plausible reconstruction. It cannot recover the original, factual pixels hidden by a mosaic or other censorship.
+> AI restoration generates a plausible reconstruction. It cannot recover the original factual pixels that were permanently hidden by a mosaic or censorship.
+
+## Latest release
+
+**Latest prerelease: MosaicRestore v1.0.1 Beta 3**
+
+- macOS
+- Apple Silicon
+- App version: `1.0.1 (105)`
+- DMG available from GitHub Releases
+
+Download:
+
+https://github.com/russellchen001/MosaicRestore/releases/tag/v1.0.1-beta.3
+
+DMG:
+
+`MosaicRestore-1.0.1-beta.3-arm64.dmg`
+
+SHA-256:
+
+`8b87eb48ad2002cb16904409badec0ea5f396b853b4a952b9e6ea5326a451cb1`
+
+## What MosaicRestore does
+
+MosaicRestore is built for AI-assisted restoration of videos containing mosaic censorship or similar obscured regions.
+
+The application supports:
+
+- video mosaic removal workflows
+- mosaic detection and restoration
+- AI video restoration
+- long-form video processing
+- automatic chunking
+- checkpoint recovery
+- cancellation and resume
+- local Apple Silicon processing
+- NVIDIA cloud processing
+- validated final video assembly
 
 ## Core capabilities
 
 - Restore a single video through the native macOS desktop app.
-- Process long videos with deterministic chunking, durable checkpoints, resume, bounded retry, validated assembly, and cancellation.
-- Run locally on Apple Silicon with an external Lada/MPS runtime.
-- Run headless Jasna/NVIDIA/TensorRT on a user-funded cloud host.
-- Run Jasna through an authenticated Agent Cloud Computer that performs visible actions on an external GPU desktop.
-- Track progress, validate outputs with `ffprobe`, and preserve resumable state after interruption.
-- Use a native SwiftUI glass interface with accessibility fallbacks for reduced transparency and motion.
+- Process long videos with deterministic chunking.
+- Resume interrupted jobs using durable checkpoints.
+- Show long-video segment progress, processing speed and remaining time when available.
+- Validate final outputs before completion.
+- Run locally on Apple Silicon using Lada and Apple MPS.
+- Run through a provider-neutral NVIDIA cloud execution path.
+- Keep local video data on the Mac when Local mode is selected.
+
+## Local processing
+
+Local mode runs on Apple Silicon using the bundled Lada runtime.
+
+Current Beta 3 local restoration stack:
+
+- Lada
+- Apple MPS
+- Lada YOLO `v4-accurate` detector by default
+- Lada YOLO `v4-fast` retained as an alternate bundled detector
+- BasicVSR++ v1.2 restoration
+- bundled FFmpeg / ffprobe
+
+The default detector was changed to `v4-accurate` in v1.0.1 Beta 3 after real-world Beta testing found residual mosaic regions with the faster detector.
+
+## Cloud processing
+
+MosaicRestore also supports an optional provider-neutral Cloud mode for NVIDIA GPU hosts.
+
+The formal Cloud Compute path uses:
+
+- Windows
+- NVIDIA GPU
+- Jasna v0.10.0
+- Lada YOLO v4 detection
+- BasicVSR++
+- TensorRT FP16
+
+The native Cloud adapter handles:
+
+- authenticated connection
+- upload
+- readiness checks
+- remote execution
+- progress monitoring
+- reconnect
+- cancellation
+- download
+- output validation
+
+Large-file transfers use file-backed streaming upload/download rather than buffering entire videos in application memory.
+
+## Long-video support
+
+MosaicRestore is designed around long-form video processing rather than only short clips.
+
+The production workflow includes:
+
+- deterministic video chunking
+- checkpoint persistence
+- resume after interruption
+- bounded retry
+- validated chunk assembly
+- cancellation
+- disk-space preflight
+- progress aggregation
+- segment-level status
+
+Example long-video UI state:
+
+```text
+Processing segment 21 of 26…
+Segment progress: 43% · 2.4fps · ~36:08 remaining
+```
+
+Checkpoint resume example:
+
+```text
+Resuming previous restore — 20 of 26 segments already complete
+```
 
 ## Architecture
 
-- **Mosaic Core (Rust):** owns validation, task state, chunk planning, checkpoint/resume, progress, cancellation, output validation, and provider-neutral error mapping.
-- **Desktop (SwiftUI):** provides the native macOS workflow and invokes the same Core executable used by other hosts.
-- **Provider adapters:** keep Apple MPS, CUDA, TensorRT, Lada, Jasna, SSH, and cloud-vendor details outside the Core contract.
-- **External runtimes:** Lada and Jasna are installed and executed separately. Their AGPL source code is not copied into the proprietary Core or Desktop source tree.
+### Mosaic Core
 
-## Execution modes
+Rust-based execution core responsible for:
 
-### Local Apple Silicon
+- request validation
+- task lifecycle
+- chunk planning
+- checkpoint and resume
+- cancellation
+- progress reporting
+- provider abstraction
+- output validation
+- error mapping
 
-The default desktop path uses an external Lada runtime with Apple MPS, the Lada YOLO v4-fast detector, and BasicVSR++ restoration. Video data remains on the local Mac.
+### macOS Desktop
 
-### Cloud NVIDIA
+Native SwiftUI application providing:
 
-Advanced users can supply a `MOSAIC_CLOUD_CONFIG` profile for a user-controlled NVIDIA host. The formal runtime is pinned Jasna v0.10.0 with Lada YOLO v4 detection, BasicVSR++ restoration and a prebuilt TensorRT cache. MosaicRestore uploads the input, checks readiness, runs Jasna headlessly, monitors it, downloads the result and validates the output. Provider credentials remain outside the repository, and GPU charges are paid directly by the user.
+- Local / Cloud processing modes
+- file selection
+- output folder management
+- progress display
+- checkpoint resume visibility
+- Cloud setup
+- diagnostics
+- result navigation
 
-### Agent Cloud Computer
+### Provider adapters
 
-Advanced users can supply an authenticated external agent configuration for a rented Windows GPU desktop. Mosaic Core owns the provider lifecycle while the external agent performs visible GUI actions that launch the same pinned Jasna runtime, preserves a reconnectable session, reports progress, supports cancellation, and returns a validated result.
+Provider-specific implementation details remain outside Mosaic Core.
+
+Supported architecture includes:
+
+- Apple Silicon / MPS
+- NVIDIA CUDA
+- TensorRT
+- Lada
+- Jasna
+- provider-neutral Cloud relay
+- Agent Cloud Computer execution
+
+## Privacy
+
+Local mode keeps video processing on the user's Mac.
+
+Cloud mode sends video only to the cloud host explicitly configured by the user.
+
+MosaicRestore does not require the developer to operate a central GPU service.
+
+Cloud costs are paid directly by the user to their selected provider.
+
+## Beta 3 validation
+
+MosaicRestore v1.0.1 Beta 3 passed:
+
+- 19 Core tests
+- Swift Release build
+- Desktop contract validation
+- bundled runtime validation
+- real Local smoke restoration
+- checkpoint cancellation/resume behavior
+- segment progress behavior
+- v4-accurate model verification
+- DMG mount/install verification
+- installed application signature verification
+- native Cloud adapter verification
+- 256 MiB streaming upload/download behavior validation
+
+Cloud streaming validation:
+
+- Upload peak RSS: 24,144 KiB
+- Upload peak/file ratio: 9.2%
+- Download peak RSS: 20,800 KiB
+- Download peak/file ratio: 7.9%
+- Upload/download SHA preserved exactly
+
+## Build
+
+Requirements for development include:
+
+- macOS
+- Apple Silicon recommended for Local mode
+- Swift / Xcode toolchain
+- Rust
+- FFmpeg / ffprobe for development tooling
+
+Build the macOS application:
+
+```bash
+bash desktop/build_app.sh
+```
+
+Core tests:
+
+```bash
+cargo test --manifest-path core/Cargo.toml
+```
+
+Desktop contract:
+
+```bash
+swift run \
+  --package-path desktop \
+  -c release \
+  MosaicRestoreContractCheck
+```
 
 ## Project status
 
-MosaicRestore **v1.0.0** is published as a source release. Local Computer (Lada/MPS) and its real 70-minute, 15-chunk quality gate are accepted. Earlier RunPod Lada/CUDA P4/P5 runs validate upload, download, relay, session, cancellation and GUI-agent infrastructure only; they do not complete the formal Jasna Cloud Compute or Agent Cloud Computer product gates. Both Jasna paths are offline-ready and await one bounded Windows/T4 E2E window.
+Current public Beta:
 
-This Mac has no Apple Developer ID identity. The repository therefore does not publish an unsigned app as a formal macOS distribution artifact: local ad-hoc installation is verified, while Developer ID signing, notarization, stapling, and Gatekeeper-ready external app distribution remain an external release blocker.
+**MosaicRestore v1.0.1 Beta 3 — build 105**
 
-The AI-OS integration contract is defined, but real AI-OS host wiring and end-to-end acceptance are intentionally deferred to AI-OS v2.0. MosaicRestore remains an independent repository and product boundary.
+The independent macOS desktop application is in Beta testing.
 
-## Build and verification
+Formal Local, Cloud Compute and Agent Cloud Computer execution paths have completed their current acceptance gates.
 
-Requirements include macOS, Xcode/Swift, Rust, `ffmpeg`, and `ffprobe`. Model runtimes and weights are external dependencies and are not bundled in this repository.
+AI-OS integration is intentionally deferred to AI-OS v2.0 and remains outside the current MosaicRestore desktop release.
 
-```bash
-desktop/build_app.sh
-verify/verify_p1_mvp.sh
-verify/verify_p2_desktop.sh
-verify/verify_p3_long_video.sh
-verify/verify_p4_cloud_execution.sh
-verify/verify_p5_agent_cloud_computer.sh
-verify/verify_jasna_airgpu.sh --offline
-verify/verify_glass_ui.sh
-```
+## Installation
 
-The P4/P5 scripts preserve Lada/CUDA infrastructure coverage. They are not formal Jasna cloud product acceptance. The dual-path Jasna gate uses `verify/verify_jasna_airgpu.sh --real --connection <secret.json> --output <new-evidence-directory>` after a separately approved AirGPU start; it never starts or purchases the machine itself.
+The current Beta is ad-hoc signed.
 
-## Privacy and cost model
+It is not Developer ID signed or notarized.
 
-Local execution keeps media on the user's Mac. Cloud execution transfers media only to the host selected and configured by the user. MosaicRestore does not provision vendor accounts, store provider credentials in Core, or absorb GPU charges. Review the privacy, retention, and pricing terms of any external runtime or cloud provider before use.
+macOS may require:
+
+**System Settings → Privacy & Security → Open Anyway**
+
+## Keywords
+
+MosaicRestore relates to:
+
+- AI video restoration
+- video mosaic removal
+- mosaic restoration
+- video restoration
+- mosaic detection
+- Apple Silicon AI
+- macOS AI video processing
+- computer vision
+- BasicVSR++
+- Lada
+- NVIDIA TensorRT
+- long video restoration
 
 ## License
 
-No license is currently provided for this repository. All rights are reserved until a separate `LICENSE` file is added. Third-party runtimes, models, and tools remain subject to their own licenses.
+No repository-level open-source license is currently provided.
+
+All rights are reserved.
+
+Third-party runtimes, models and tools retain their respective licenses.

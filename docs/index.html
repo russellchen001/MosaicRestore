@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>MosaicRestore — AI Video Mosaic Removal and Restoration for macOS</title>
+
+  <meta name="description"
+        content="MosaicRestore is a local-first AI video mosaic removal and restoration app for macOS, Apple Silicon and optional NVIDIA cloud processing.">
+
+  <meta name="keywords"
+        content="MosaicRestore, video mosaic removal, mosaic restoration, AI video restoration, Apple Silicon, macOS, Lada, BasicVSR++, NVIDIA, TensorRT, computer vision">
+
+  <meta name="robots" content="index, follow">
+
+  <link rel="canonical"
+        href="https://russellchen001.github.io/MosaicRestore/">
+
+  <meta property="og:title"
+        content="MosaicRestore — AI Video Mosaic Removal and Restoration">
+
+  <meta property="og:description"
+        content="Local-first AI video mosaic restoration for macOS with Apple Silicon and optional NVIDIA cloud processing.">
+
+  <meta property="og:type" content="website">
+
+  <meta property="og:url"
+        content="https://russellchen001.github.io/MosaicRestore/">
+
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "SF Pro Display",
+        "Segoe UI",
+        sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #0b0c10;
+      color: #f5f5f7;
+    }
+
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 72px 28px 100px;
+    }
+
+    h1 {
+      font-size: clamp(42px, 7vw, 78px);
+      line-height: 1;
+      margin: 0 0 24px;
+    }
+
+    h2 {
+      margin-top: 56px;
+      font-size: 30px;
+    }
+
+    p,
+    li {
+      color: #c7c7cc;
+      line-height: 1.7;
+      font-size: 18px;
+    }
+
+    .lead {
+      font-size: 24px;
+      color: #e5e5ea;
+      max-width: 760px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 32px;
+    }
+
+    a.button {
+      display: inline-block;
+      padding: 13px 20px;
+      border-radius: 12px;
+      text-decoration: none;
+      background: #f5f5f7;
+      color: #111;
+      font-weight: 650;
+    }
+
+    a.secondary {
+      background: #24262d;
+      color: #f5f5f7;
+    }
+
+    .card {
+      margin-top: 28px;
+      padding: 24px;
+      background: #15171d;
+      border: 1px solid #292c34;
+      border-radius: 18px;
+    }
+
+    footer {
+      margin-top: 72px;
+      color: #777;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+<main>
+
+  <h1>MosaicRestore</h1>
+
+  <p class="lead">
+    Local-first AI video mosaic removal and restoration for macOS,
+    with Apple Silicon local processing and optional NVIDIA cloud execution.
+  </p>
+
+  <div class="buttons">
+
+    <a class="button"
+       href="https://github.com/russellchen001/MosaicRestore/releases/tag/v1.0.1-beta.3">
+      Download Beta 3
+    </a>
+
+    <a class="button secondary"
+       href="https://github.com/russellchen001/MosaicRestore">
+      View on GitHub
+    </a>
+
+  </div>
+
+  <section class="card">
+    <strong>Current release</strong>
+
+    <p>MosaicRestore v1.0.1 Beta 3 — build 105</p>
+
+    <p>Apple Silicon macOS DMG available from GitHub Releases.</p>
+  </section>
+
+  <h2>AI video mosaic restoration</h2>
+
+  <p>
+    MosaicRestore is designed for restoring videos containing mosaic censorship
+    or similar obscured regions using modern AI video restoration pipelines.
+  </p>
+
+  <p>
+    Local processing uses Apple Silicon and Apple MPS with Lada mosaic detection
+    and BasicVSR++ restoration.
+  </p>
+
+  <h2>Built for long videos</h2>
+
+  <ul>
+    <li>Automatic chunking</li>
+    <li>Checkpoint and resume</li>
+    <li>Segment-level progress</li>
+    <li>Cancellation and retry</li>
+    <li>Validated final assembly</li>
+  </ul>
+
+  <h2>Local-first privacy</h2>
+
+  <p>
+    Local mode keeps video processing on the user's Mac.
+    Cloud processing is optional and connects only to a host selected by the user.
+  </p>
+
+  <h2>Apple Silicon + NVIDIA</h2>
+
+  <p>
+    MosaicRestore supports Apple Silicon local execution and a provider-neutral
+    NVIDIA cloud architecture based on Jasna, Lada, BasicVSR++ and TensorRT.
+  </p>
+
+  <h2>Important limitation</h2>
+
+  <p>
+    AI restoration generates a plausible reconstruction.
+    It cannot recover factual original pixels that were permanently hidden by censorship.
+  </p>
+
+  <footer>
+    MosaicRestore · russellchen001 · All rights reserved
+  </footer>
+
+</main>
+</body>
+</html>

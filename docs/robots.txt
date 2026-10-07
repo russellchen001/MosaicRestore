@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://russellchen001.github.io/MosaicRestore/sitemap.xml
