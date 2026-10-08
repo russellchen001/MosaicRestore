@@ -10,7 +10,7 @@ CORE="core/target/debug/mosaic-core"
 pass() { echo "✓ $1"; }
 fail() { echo "✗ $1"; FAIL=1; }
 
-if cargo test --manifest-path core/Cargo.toml --quiet && \
+if cargo test --manifest-path core/Cargo.toml --quiet -- --test-threads=1 && \
    cargo build --manifest-path core/Cargo.toml --quiet --bin mosaic-core; then
   pass "P3 Core behavior tests and CLI build"
 else

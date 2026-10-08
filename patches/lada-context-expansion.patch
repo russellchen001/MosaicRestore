@@ -1,0 +1,12 @@
+diff --git a/lada/restorationpipeline/mosaic_detector.py b/lada/restorationpipeline/mosaic_detector.py
+--- a/lada/restorationpipeline/mosaic_detector.py
++++ b/lada/restorationpipeline/mosaic_detector.py
+@@ -96,7 +96,7 @@ class Clip:
+         # crop scene
+         for i in range(len(scene)):
+             img, mask, box = scene.frames[i], scene.masks[i], scene.boxes[i]
+-            cropped_img, cropped_mask, cropped_box, _ = crop_to_box_v3(box, img, mask, (size, size), max_box_expansion_factor=1., border_size=0.06)
++            cropped_img, cropped_mask, cropped_box, _ = crop_to_box_v3(box, img, mask, (size, size), max_box_expansion_factor=1., border_size=0.12)
+             self.frames.append(cropped_img)
+             self.masks.append(cropped_mask)
+             self.boxes.append(cropped_box)

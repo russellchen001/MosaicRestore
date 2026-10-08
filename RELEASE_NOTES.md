@@ -30,3 +30,39 @@ The image keeps Lada and its third-party dependencies outside the proprietary Co
 - AI restoration generates a plausible reconstruction; it cannot recover factual pixels hidden by censorship.
 - AI-OS v2.0 only needs host wiring to the accepted Mosaic Core/CLI contract. AI-OS was not modified for this release.
 - The repository does not currently include a `LICENSE` file. All rights are reserved; third-party runtimes, models, and tools remain governed by their own licenses.
+
+## v1.0.1 Beta 4 — build 106
+
+Beta 4 focuses on Mosaic quality and long-video reliability.
+
+### Improvements
+
+- Added a bounded two-frame Temporal Hold to reduce brief Mosaic detector misses.
+- Expanded restoration context around detected Mosaic regions.
+- Fixed production chunk planning so extremely short trailing fragments are not
+  incorrectly submitted for restoration.
+- Preserved the Beta 3 Local, Cloud, Desktop, checkpoint, recovery, retry,
+  cancellation, cleanup, and queue architecture.
+
+### Quality decisions
+
+Selective Second Pass and Temporal Refinement were tested against real video
+windows but did not meet the release threshold. They are not included in the
+Beta 4 runtime.
+
+FaceBlur and all face-restoration functionality remain outside MosaicRestore.
+
+### Verification
+
+- Core regression: PASS
+- Beta 4 quality gate: PASS
+- Local Lada/MPS: PASS
+- Desktop: PASS
+- Long-video workflow: PASS
+- Cloud contract fixtures: PASS
+- Agent Cloud Computer contract fixtures: PASS
+- Strict app signature: PASS
+- Real 120-second Local/MPS video full decode: PASS
+- Final release regression: 12 PASS / 0 FAIL
+
+No new paid cloud resource was started for this release.

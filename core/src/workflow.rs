@@ -14,6 +14,7 @@ use std::process::Command;
 use std::time::UNIX_EPOCH;
 
 const MEDIA_BIN_DIR_ENV: &str = "MOSAIC_MEDIA_BIN_DIR";
+const MIN_TRAILING_CHUNK_SECONDS: f64 = 0.1;
 
 fn media_tool(name: &str) -> PathBuf {
     if let Some(dir) = std::env::var_os(MEDIA_BIN_DIR_ENV) {
@@ -76,7 +77,16 @@ pub fn plan_chunks(
             "chunk duration must be positive",
         ));
     }
-    let count = (duration_seconds / chunk_seconds).ceil() as usize;
+    let complete_chunks = (duration_seconds / chunk_seconds).floor() as usize;
+    let trailing_seconds = duration_seconds - complete_chunks as f64 * chunk_seconds;
+    let minimum_trailing = MIN_TRAILING_CHUNK_SECONDS.min(chunk_seconds);
+    let count = if complete_chunks == 0 {
+        1
+    } else if trailing_seconds >= minimum_trailing {
+        complete_chunks + 1
+    } else {
+        complete_chunks
+    };
     Ok((0..count)
         .map(|index| {
             let start = index as f64 * chunk_seconds;
@@ -654,6 +664,14 @@ mod tests {
                 duration_seconds: 5.0
             }
         );
+    }
+
+    #[test]
+    fn ignores_a_trailing_fragment_too_short_for_restoration() {
+        let plan = plan_chunks(120.053, 30.0).unwrap();
+        assert_eq!(plan.len(), 4);
+        assert_eq!(plan[3].start_seconds, 90.0);
+        assert_eq!(plan[3].duration_seconds, 30.0);
     }
 
     #[test]

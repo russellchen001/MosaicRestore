@@ -6,7 +6,7 @@ FAIL=0
 APP="desktop/build/MosaicRestore.app"
 SMOKE="benchmark/samples/p1_lada_smoke.mp4"
 OUTPUT="benchmark/results/p2_desktop_restored.mp4"
-LADA_ROOT="benchmark/lada-upstream"
+LADA_ROOT="$APP/Contents/Resources/Runtime/Lada"
 FIXTURE_ROOT=$(mktemp -d /tmp/mosaic-p2-verify.XXXXXX)
 trap 'rm -rf "$FIXTURE_ROOT"' EXIT
 

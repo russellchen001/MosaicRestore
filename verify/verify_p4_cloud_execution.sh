@@ -10,7 +10,7 @@ trap 'rm -rf "$ROOT"' EXIT
 pass() { echo "✓ $1"; }
 fail() { echo "✗ $1"; FAIL=1; }
 
-if CARGO_TARGET_DIR="$BUILD" cargo test --manifest-path core/Cargo.toml --quiet; then
+if CARGO_TARGET_DIR="$BUILD" cargo test --manifest-path core/Cargo.toml --quiet -- --test-threads=1; then
   pass "Cloud contract behavior tests"
 else
   fail "Cloud contract behavior tests"

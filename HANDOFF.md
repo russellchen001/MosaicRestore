@@ -1,6 +1,8 @@
 # MosaicRestore — HANDOFF
 
 ## Current Phase
+v1.0.1 Beta 4 development has restarted from the immutable `v1.0.1-beta.3` / `9768197fb93c9e0cc7a57c30306f5363936847cf` baseline on branch `beta4-mosaic-quality`. Beta 4 is limited to Mosaic Quality & Temporal Reliability. FaceBlur and all face-restoration providers, models, region types, and UI are outside the product boundary.
+
 v1.0.0 remains published as a source release and its tag/history must not be deleted or rewritten. Accepted: Local Computer, Core/Desktop, the P3 long-video production workflow, the Local quality gate, and the Lada/CUDA cloud infrastructure lifecycle. **As of 2026-10-05 both formal Jasna cloud products, Cloud Compute and Agent Cloud Computer, have also passed real end-to-end runs** on AirGPU Windows Tesla T4 at smoke scale; see the two PASS sections under P5 Verification. AI-OS is unchanged.
 AirGPU `airgpu-35d4bba7ac` is Off with credit US$8.74. Paid windows are allowed; the working method is under "How to run a paid window" below.
 
@@ -44,6 +46,8 @@ Both share one Mosaic Core.
 - Microsoft UFO2/UFO3 (MIT) may replace the reference agent at the adapter boundary. The bundled standalone path uses pywinauto (BSD-3-Clause) for Windows UI Automation and keeps pywinauto, Lada, relay software, credentials, and rented-machine details outside Core/Desktop.
 - The Desktop app icon is a repository-owned macOS `.icns` family generated from one 1024×1024 master. The manual app-bundle build copies it into `Contents/Resources`, and `CFBundleIconFile` is the single icon metadata authority.
 - Desktop keeps a native transparent titlebar but does not use `fullSizeContentView`, so the standard close, minimize, and zoom controls remain visible. The complete Advanced header is one explicit button rather than a disclosure control with a chevron-only hit target.
+- Beta 4 remains mosaic-only. The released quality path is Temporal Hold plus Context Expansion. Selective Second Pass and Temporal Refinement were evaluated against real accepted windows but rejected because they did not provide sufficient visual benefit relative to their quality/performance cost. Beta 4 does not add FaceBlur Detection, Assessment, Restoration, `RegionKind::FaceBlur`, YuNet, Grounding DINO, GFPGAN, RestoreFormer, RefFace, SeedVR2, a FaceBlur provider, or FaceBlur UI.
+- The first Beta 4 quality loop uses a fixed two-frame detector hold in the external Lada runtime. Core/Desktop contracts and Beta3 checkpoint/recovery, Local, and Cloud architecture remain unchanged. The change is maintained as an auditable patch applied only while building the pinned external runtime; no AGPL implementation is copied into Mosaic Core.
 
 ## Execution Providers
 1. Local Computer.
@@ -622,3 +626,125 @@ Beta 1 and Beta 2 remain immutable historical prereleases.
 
 Developer ID signing and notarization remain intentionally outside the Beta
 release gate. Distribution remains ad-hoc signed.
+
+## v1.0.1 Beta 4 — Mosaic Quality & Temporal Reliability
+
+Status: RELEASED AS `v1.0.1-beta.4` / BUILD 106 ON 2026-10-08
+
+Product boundary:
+
+- Mosaic restoration only.
+- Preserve Beta3 long-video reliability, checkpoint/recovery, Local, Cloud,
+  and Desktop contracts.
+- No FaceBlur detection, assessment, restoration, provider, model, region
+  type, or UI.
+
+Block 1 — Residual Mosaic + Temporal Hold (accepted):
+
+- The pinned external Lada runtime retains an active Mosaic scene for up to
+  two consecutive detector misses and reuses an independent copy of the last
+  Mosaic mask for those frames.
+- A real detection resets the hold window. The third consecutive miss ends
+  the held sequence, bounding false-positive propagation.
+- The implementation is distributed as
+  `patches/lada-temporal-detector-hold.patch` and is applied only during the
+  standalone runtime build. The external Lada checkout is restored after the
+  build.
+- `verify/verify_beta4_mosaic_quality.sh`: Engineering PASS.
+- Applied-patch integration behavior: PASS for two held misses, bounded third
+  miss, independent mask copy, and reset on real detection.
+- Mosaic Core regression: 19 passed, 0 failed.
+- Frozen Beta4 standalone runtime Local/MPS restore and full output decode:
+  PASS.
+- P3 long-video reliability and production workflow: PASS, including
+  cancellation, resume, crash recovery, retry, cleanup, disk preflight, media
+  readability, and batch order.
+- Visual PASS on the five accepted known residual-mosaic windows, with a small
+  improvement and no accepted broad/final quality claim.
+
+Block 2 — Context Expansion (ACCEPTED ON 2026-10-08 — NOT COMMITTED OR RELEASED):
+
+- The experiment is an external-Lada-only patch at
+  `patches/lada-context-expansion.patch`. It changes the existing restoration
+  crop context from 6% to 12%; no Core, Desktop, Cloud, checkpoint/recovery, or
+  provider interface changes were made.
+- `verify/verify_beta4_context_expansion.sh`: Engineering PASS. The context
+  expands, remains bounded to approximately 1.25 times the detected extent,
+  clips safely at frame edges, and preserves the `Clip` constructor contract.
+- Pinned Lada `20cb34a` built as an independent 857 MiB frozen runtime; the
+  external checkout was restored after the build. Core regression passed 19/19,
+  and real Local/MPS restore plus full decode passed.
+- Real A/B used the same five known windows at 01:56:01, 02:29:03, 02:49:37,
+  02:55:07, and 02:55:40. Each Original, Block 1, and Block 2 output contains
+  239 frames and decodes completely.
+- Automated review found two decoded-frame-identical windows and only subtle
+  changes in the other three, with no obvious new over-expansion or
+  mis-restoration. The user reviewed the combined comparison and explicitly
+  accepted Block 2 visually on 2026-10-08; Visual PASS is therefore the product
+  acceptance result, without claiming a broad or final quality improvement.
+- The combined comparison is
+  `/Users/russellchen/Documents/Codex/2026-10-08/referenced-chatgpt-conversation-this-is-an-4/outputs/beta4-block2-context/beta4-block2-all-Original-Block1-Block2.mp4`.
+- The default Beta4 runtime build and `verify/verify_beta4_mosaic_quality.sh`
+  now include Temporal Hold plus Context Expansion. Selective second pass and
+  temporal refinement remain disabled.
+
+No paid cloud test ran. Build105 remains the current released build. No commit,
+push, release packaging, or build-number change is included.
+
+### v1.0.1 Beta 4 — final release
+
+Release date: 2026-10-08
+
+Tag: `v1.0.1-beta.4`
+
+Build: `106`
+
+Released Beta 4 quality path:
+
+- Two-frame Temporal Hold for bounded Mosaic detector misses.
+- Context Expansion from the accepted external Lada runtime patch.
+- Selective Second Pass was evaluated and rejected: the five real comparison
+  windows showed no confirmable residual improvement, introduced slight
+  softening, and increased the measured comparison runtime from 26.15 seconds
+  to 37.22 seconds (approximately +42%).
+- Temporal Refinement was evaluated and rejected: four of five real windows had
+  slightly worse temporal-difference metrics and one showed only a marginal
+  improvement, without a stable visually confirmable gain.
+- Therefore neither rejected experiment is part of the released Beta 4 runtime.
+- FaceBlur remains completely outside the product.
+
+Long-video release fix:
+
+- Production chunk planning now ignores a trailing fragment shorter than the
+  minimum viable restoration duration instead of creating an invalid tiny
+  final chunk.
+- The real regression case was a 120.053-second input with 30-second chunks.
+  The old plan created a fifth approximately 0.053-second fragment containing
+  no valid video metadata. The released planner correctly creates four chunks.
+- A dedicated behavior test covers this regression.
+
+Final release acceptance:
+
+- `git diff --check`: PASS.
+- Mosaic Core serial regression: PASS.
+- Beta 4 Mosaic quality engineering gate: PASS.
+- P1 real Local Lada/MPS: PASS.
+- P2 Desktop: PASS.
+- P3 long-video reliability: PASS.
+- P4 Cloud contract fixture: PASS.
+- P5 Agent Cloud Computer contract fixture: PASS.
+- Desktop build 106: PASS.
+- Strict ad-hoc codesign verification: PASS.
+- FaceBlur implementation scan: 0 product hits.
+- No new paid cloud run was performed. The previously accepted real Jasna
+  Cloud Compute and Agent Cloud Computer evidence remains authoritative.
+- Final real Local/MPS long-video acceptance used a continuous 120.053-second
+  1280x720 source. Four production chunks completed with checkpoint
+  `completed=0,1,2,3`.
+- The assembled acceptance artifact is 120.139900 seconds, H.264 + AAC, and
+  passes complete video/audio decode.
+- Input/output duration difference is 0.086900 seconds.
+- Final pre-release regression result: PASS=12, FAIL=0.
+
+Beta 4 is frozen at the release tag. Future quality experiments must start
+after this immutable Beta 4 baseline.

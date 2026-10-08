@@ -3,6 +3,29 @@
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 LADA="${MOSAIC_LADA_SOURCE_DIR:-$ROOT/benchmark/lada-upstream}"
 OUT="${MOSAIC_LADA_RUNTIME_DIR:-$ROOT/work/lada-macos-runtime}"
+TEMPORAL_PATCH="$ROOT/patches/lada-temporal-detector-hold.patch"
+CONTEXT_PATCH="$ROOT/patches/lada-context-expansion.patch"
+TEMPORAL_TEST="$ROOT/verify/beta4_temporal_hold_behavior.py"
+CONTEXT_TEST="$ROOT/verify/beta4_context_expansion_behavior.py"
+TEMPORAL_PATCH_APPLIED=0
+CONTEXT_PATCH_APPLIED=0
+
+restore_lada_source() {
+    if [ "$CONTEXT_PATCH_APPLIED" -eq 1 ]; then
+        git -C "$LADA" apply --reverse "$CONTEXT_PATCH" || {
+            echo "FAIL — could not remove the Beta4 context expansion patch"
+            return 1
+        }
+    fi
+    if [ "$TEMPORAL_PATCH_APPLIED" -eq 1 ]; then
+        git -C "$LADA" apply --reverse "$TEMPORAL_PATCH" || {
+            echo "FAIL — could not remove the Beta4 temporal hold patch"
+            return 1
+        }
+    fi
+}
+
+trap restore_lada_source EXIT
 
 echo "===== Lada source ====="
 echo "$LADA"
@@ -22,6 +45,32 @@ if ! "$LADA/.venv/bin/python" -m PyInstaller --version >/dev/null 2>&1; then
     uv pip install \
       --python "$LADA/.venv/bin/python" \
       pyinstaller || exit 1
+fi
+
+if ! git -C "$LADA" apply --check "$TEMPORAL_PATCH"; then
+    echo "FAIL — Beta4 temporal detector hold patch does not apply cleanly"
+    exit 1
+fi
+
+git -C "$LADA" apply "$TEMPORAL_PATCH" || exit 1
+TEMPORAL_PATCH_APPLIED=1
+
+if ! git -C "$LADA" apply --check "$CONTEXT_PATCH"; then
+    echo "FAIL — Beta4 context expansion patch does not apply cleanly"
+    exit 1
+fi
+
+git -C "$LADA" apply "$CONTEXT_PATCH" || exit 1
+CONTEXT_PATCH_APPLIED=1
+
+if ! PYTHONPATH="$LADA" "$LADA/.venv/bin/python" "$TEMPORAL_TEST" "$LADA"; then
+    echo "FAIL — Beta4 temporal detector hold behavior"
+    exit 1
+fi
+
+if ! PYTHONPATH="$LADA" "$LADA/.venv/bin/python" "$CONTEXT_TEST" "$LADA"; then
+    echo "FAIL — Beta4 context expansion behavior"
+    exit 1
 fi
 
 echo
@@ -152,6 +201,8 @@ cat > "$OUT/runtime.json" <<EOF
   "architecture": "arm64",
   "detector_default": "lada_mosaic_detection_model_v4_accurate.pt",
   "detector_fast": "lada_mosaic_detection_model_v4_fast.pt",
+  "temporal_detector_hold_frames": 2,
+  "restoration_context_ratio": 0.12,
   "restorer": "lada_mosaic_restoration_model_generic_v1.2.pth"
 }
 EOF

@@ -6,6 +6,7 @@ FAIL=0
 SMOKE="benchmark/samples/p1_lada_smoke.mp4"
 OUTPUT="benchmark/results/p1_lada_smoke_restored.mp4"
 LADA_ROOT="benchmark/lada-upstream"
+RUNTIME_ROOT="${MOSAIC_LADA_RUNTIME_DIR:-work/lada-macos-runtime}"
 
 if cargo test --manifest-path core/Cargo.toml --quiet; then
   echo "✓ Core, provider, progress, cancellation and error mapping"
@@ -42,7 +43,7 @@ fi
 if [ "$FAIL" -eq 0 ] && \
    core/target/debug/mosaic-core \
      --provider local-lada \
-     --provider-root "$LADA_ROOT" \
+     --provider-root "$RUNTIME_ROOT" \
      --input "$SMOKE" \
      --output "$OUTPUT"; then
   echo "✓ real Local Lada/MPS restore"
